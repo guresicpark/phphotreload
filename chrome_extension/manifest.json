@@ -1,0 +1,25 @@
+{
+  "name": "phphotreload",
+  "version": "1.0",
+  "manifest_version": 2,
+  "description": "Refreshes chrome tabs if local files change",
+  "author": "guresicpark.com",
+  "icons": {
+    "48": "img/icon_phphotreload_48.png",
+    "128": "img/icon_phphotreload_128.png"
+  },
+  "browser_action": {
+    "default_icon": "img/icon_16.png",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "page": "background.html"
+  },
+  "permissions": [
+    "file://*/",
+    "http://*/",
+    "https://*/",
+    "tabs",
+    "activeTab"
+  ]
+}
