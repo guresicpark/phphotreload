@@ -7,6 +7,7 @@ var log = console.log.bind(console),
 var fs = require('fs'),
     path = require('path'),
     yaml = require('js-yaml'),
+    includes = require('array-includes'),
     io = require('socket.io')(1337),
     chokidar = require('chokidar'),
     request = require('request'),
@@ -40,8 +41,11 @@ var getConfigurationByDomain = function(psDomain) {
     }
     for (var deltaConfig in gloConfig) {
         var oElement = gloConfig[deltaConfig];
+        if (typeof oElement.domains === 'undefined') {
+            continue;
+        }
         var aDomains = oElement.domains;
-        if (aDomains.includes(psDomain)) {
+        if (includes(aDomains, psDomain)) {
             oElement['local'] = deltaConfig.normalizePath();
             return oElement;
         }
@@ -55,7 +59,7 @@ var getConfigurationByLocalFile = function(psLocalFile) {
     }
     for (var deltaConfig in gloConfig) {
         var sNeedle = deltaConfig.normalizePath();
-        if (psLocalFile.includes(sNeedle)) {
+        if (psLocalFile.indexOf(sNeedle) !== -1) {
             var oElement = gloConfig[deltaConfig];
             oElement['local'] = sNeedle;
             return oElement;
@@ -117,7 +121,7 @@ const startServer = function () {
     // exit if there is no routing file
     if (!fs.existsSync(sConfigFile)) {
         log('%s Resync server: %s does not exist - please create it a server configuration file in server root path!', displayTime(), sConfigFile);
-        return;
+        process.exit();
     }
 
     // get routing data from routing file
@@ -143,12 +147,14 @@ const startServer = function () {
 
                     var aLocalPaths = [];
 
-                    for (var i = 0; i < oConfigEntry.extensions.length; i++) {
-                        var sNewLocalPath = oConfigEntry.local.normalizePath() + '/**/*.' + oConfigEntry.extensions[i];
-                        if (!aLocalPaths.includes(sNewLocalPath)) {
-                            aLocalPaths.push(sNewLocalPath);
-                        }
-                    }
+                    if (typeof oConfigEntry.extensions !== 'undefined') {
+                        for (var i = 0; i < oConfigEntry.extensions.length; i++) {
+                            var sNewLocalPath = oConfigEntry.local.normalizePath() + '/**/*.' + oConfigEntry.extensions[i];
+                            if (!includes(aLocalPaths, sNewLocalPath)) {
+                                aLocalPaths.push(sNewLocalPath);
+                            }
+                        }					    
+					}
 
                     // pathes to watch
                     if (gloWatcherLocalFile) {
@@ -157,9 +163,12 @@ const startServer = function () {
 
                     // ignored folder
                     var aIgnored = [/[\/\\]\./];
-                    for (var i = 0; i < oConfigEntry.ignored.length; i++) {
-                        aIgnored.push(oConfigEntry.ignored[i]);
-                    }
+
+                    if (typeof oConfigEntry.ignored !== 'undefined') {
+						for (var i = 0; i < oConfigEntry.ignored.length; i++) {
+                            aIgnored.push(oConfigEntry.ignored[i]);
+                        }
+					}
 
                     gloWatcherLocalFile = chokidar.watch(aLocalPaths, {
                         ignored: aIgnored,
@@ -174,12 +183,14 @@ const startServer = function () {
                         if (oConfigEntry = getConfigurationByLocalFile(psChangedLocalFile.normalizePath())) {
                             
                             // clear temporary files by deleting local tmp files
-                            for (var i = 0; i < oConfigEntry.clearpath.length; i++) {
-                                clearTemp(oConfigEntry.clearpath[i]);
+                            if (typeof oConfigEntry.clearpath !== 'undefined') {
+                                for (var i = 0; i < oConfigEntry.clearpath.length; i++) {
+                                    clearTemp(oConfigEntry.clearpath[i]);
+                                }
                             }
-
-                            if (oConfigEntry.clearurl.length) {
-                                // clear temporary files by URL
+                            
+                            // clear temporary files by URL
+                            if (typeof oConfigEntry.clearurl !== 'undefined') {    
                                 for (var i = 0; i < oConfigEntry.clearurl.length; i++) {
                                     // request options
                                     var options = {
@@ -210,8 +221,7 @@ const startServer = function () {
                                 }
 
                             } else {
-                                // without cache handle
-                                // trigger reload
+                                // without cache handle just trigger reload with latency from config file
                                 setTimeout(function() {
                                     socket.send(JSON.stringify(oData.iTabId));
                                 }, oConfigEntry.latency);

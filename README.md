@@ -6,7 +6,11 @@
 `git clone https://github.com/guresicpark/phphotreload`
 
 ### Start phphotreload nodejs server
-Go to phphotreload server `cd /nodejs_server` and type `npm install`. After that you can start it with `node index.js`. But before you start you have to configure `/nodejs_server/config.yml` file:
+Go to phphotreload server `cd /nodejs_server` and type `npm install`. After that you can start it with `npm start`.
+
+If it fails to start because of missing node, try: `sudo ln -s /usr/bin/nodejs /usr/bin/node`.
+
+But before you start you have to configure `/nodejs_server/config.yml` file:
 ```yaml
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
   latency: 400 # how long to wait to reload tab after a file has changed 
