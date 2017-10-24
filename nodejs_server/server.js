@@ -140,7 +140,9 @@ const startServer = function () {
             socket.on('message', debounce(300, function (jsonData) {
                 var oData = JSON.parse(jsonData);
                 var sDomain = oData.sUrl.getDomain();
-
+                if (sDomain == "chrome-devtools:") {
+                    return;
+                }
                 log('[%s phphotreload server] %s', displayTime(), "Message from chrome: " + sDomain + ' ' + oData.sMessage);
 
                 if (oConfigEntry = getConfigurationByDomain(sDomain)) {
@@ -188,9 +190,10 @@ const startServer = function () {
                                     clearTemp(oConfigEntry.clearpath[i]);
                                 }
                             }
-                            
-                            // clear temporary files by URL
-                            if (typeof oConfigEntry.clearurl !== 'undefined') {    
+                                                        
+                            // clear temporary files by URL asynchronously
+                            if (typeof oConfigEntry.clearurl !== 'undefined') {                                
+                                var iUrlRequestsProcessed = 0;
                                 for (var i = 0; i < oConfigEntry.clearurl.length; i++) {
                                     // request options
                                     var options = {
@@ -201,20 +204,21 @@ const startServer = function () {
                                         method: 'GET',
                                         json: true
                                     };
-                                    
+
                                     function handleResponse(error, response, body) {
                                         if (error || typeof body === 'undefined') {
                                             log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
                                             return;
                                         }
                                         log('[%s phphotreload server] %s', displayTime(), "Cache task success result: " + body.message);
-                                        
-                                        // trigger reload
-                                        setTimeout(function() {
-                                            socket.send(JSON.stringify(oData.iTabId));
-                                        }, oConfigEntry.latency);
+                                        iUrlRequestsProcessed++;
+                                        if (iUrlRequestsProcessed == oConfigEntry.clearurl.length) {
+                                            // trigger reload
+                                            setTimeout(function() {
+                                                socket.send(JSON.stringify(oData.iTabId));
+                                            }, oConfigEntry.latency);
+                                        }
                                     }
-
                                    // init request
                                    log('[%s phphotreload server] %s', displayTime(), "Request startet for " + oConfigEntry.clearurl[i]);
                                    request(options, handleResponse);
