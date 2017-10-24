@@ -24,7 +24,16 @@ socket.on('message', function (jsonData) {
     var aData = JSON.parse(jsonData);
     var iTabId = aData.iTabId;
     chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
+    chrome.tabs.reload(iTabId, {bypassCache: true});
+    /* chrome.tabs.update(iTabId, {active:true, highlighted:true}, function(tab) {
+        chrome.tabs.reload();
+    });
+    chrome.tabs.executeScript(iTabId, {code: 'window.location.reload()'});
     chrome.tabs.reload(iTabId, {bypassCache: true})
+	chrome.tabs.query({active: true, currentWindow: true}, function (arrayOfTabs) {
+		var code = 'window.location.reload();';
+		chrome.tabs.executeScript(arrayOfTabs[0].id, {code: code});
+	}); */
 });
 
 socket.on('disconnect', function () {
