@@ -51,12 +51,12 @@ String.prototype.normalizePath = function() {
  * @return object configuration entry
  */
 var getConfigurationByDomain = function(psDomain) {
-    if (typeof psDomain === 'undefined' || psDomain == '') {
+    if (typeof psDomain === 'undefined' || !psDomain) {
         return false;
     }
     for (var deltaConfig in gloConfig) {
         var oElement = gloConfig[deltaConfig];
-        if (typeof oElement.domains === 'undefined') {
+        if (typeof oElement.domains === 'undefined' || !oElement.domains.length) {
             continue;
         }
         var aDomains = oElement.domains;
@@ -69,7 +69,7 @@ var getConfigurationByDomain = function(psDomain) {
 };
 
 var getConfigurationByLocalFile = function(psLocalFile) {
-    if (typeof psLocalFile === 'undefined' || psLocalFile == '') {
+    if (typeof psLocalFile === 'undefined' || !psLocalFile) {
         return false;
     }
     for (var deltaConfig in gloConfig) {
@@ -173,7 +173,7 @@ const startServer = function () {
 
                     var aLocalPaths = [];
 
-                    if (typeof oConfigEntry.extensions !== 'undefined') {
+                    if (typeof oConfigEntry.extensions !== 'undefined' && oConfigEntry.extensions.length) {
                         for (var i = 0; i < oConfigEntry.extensions.length; i++) {
                             var sNewLocalPath = oConfigEntry.local.normalizePath() + '/**/*.' + oConfigEntry.extensions[i];
                             if (!includes(aLocalPaths, sNewLocalPath)) {
@@ -190,14 +190,14 @@ const startServer = function () {
                     // ignored folder
                     var aIgnored = [/[\/\\]\./];
 
-                    if (typeof oConfigEntry.ignored !== 'undefined') {
+                    if (typeof oConfigEntry.ignored !== 'undefined' && oConfigEntry.ignored.length) {
 						for (var i = 0; i < oConfigEntry.ignored.length; i++) {
                             aIgnored.push(oConfigEntry.ignored[i]);
                         }
                     }
 
                     if (aLocalPaths && arraysEqual(aLocalPaths, aglLocalPathsLast)) {
-                        if (typeof oConfigEntry.ignored !== 'undefined' && oConfigEntry.ignored
+                        if (typeof oConfigEntry.ignored !== 'undefined' && oConfigEntry.ignored.length
                             && arraysEqual(oConfigEntry.ignored, aglIgnoredLast)) {
                             // don't init new filewatcher if there is no entry in config
                             return;	
@@ -221,14 +221,14 @@ const startServer = function () {
                         if (oConfigEntry = getConfigurationByLocalFile(psChangedLocalFile.normalizePath())) {
                             
                             // clear temporary files by deleting local tmp files
-                            if (typeof oConfigEntry.clearpath !== 'undefined') {
+                            if (typeof oConfigEntry.clearpath !== 'undefined' && oConfigEntry.clearpath.length) {
                                 for (var i = 0; i < oConfigEntry.clearpath.length; i++) {
                                     clearTemp(oConfigEntry.clearpath[i]);
                                 }
                             }
                                                         
                             // clear temporary files by URL asynchronously
-                            if (typeof oConfigEntry.clearurl !== 'undefined') {                                
+                            if (typeof oConfigEntry.clearurl !== 'undefined' && oConfigEntry.clearurl.length) {
                                 var iUrlRequestsProcessed = 0;
                                 for (var i = 0; i < oConfigEntry.clearurl.length; i++) {
                                     // request options
@@ -242,7 +242,7 @@ const startServer = function () {
                                     };
 
                                     function handleResponse(error, response, body) {
-                                        if (error || typeof body === 'undefined') {
+                                        if (error || typeof body === 'undefined' || !body) {
                                             log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
                                             return;
                                         }
