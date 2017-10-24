@@ -3,15 +3,16 @@
 // Global variables
 var log = console.log.bind(console);
 var socket = io.connect('http://localhost:1337');
-var blServerConnection = false;
+var blServerConnection = false,
+    gliCurrentTabId = void 0;
 
 socket.on('connect', function() {
 
     // send current active tab
-    chrome.tabs.getSelected(null, function(poTabActive){
+    chrome.tabs.getSelected(null, function(poActiveTab){
         socket.send(JSON.stringify({
-            sUrl: poTabActive.url,
-            iTabId: poTabActive.id,
+            sUrl: poActiveTab.url,
+            iTabId: poActiveTab.id,
             sMessage: "initialized"
         }));
     });
@@ -41,8 +42,8 @@ socket.on('disconnect', function () {
 // After tab was reloaded or a link was clicked
  chrome.tabs.onUpdated.addListener(function (pTabId, poChangeInfo, poTab) {
     if(poChangeInfo.status == "complete"){
-        chrome.tabs.getSelected(null, function(poTabActive){
-            if (poTabActive.id == poTab.id) {
+        chrome.tabs.getSelected(null, function(poActiveTab){
+            if (poActiveTab.id == poTab.id) {
                 if (blServerConnection) {
                     chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
                 } else {
@@ -60,10 +61,10 @@ socket.on('disconnect', function () {
 
 // Tab was switched
 chrome.tabs.onActivated.addListener(function (poActiveInfo) {
-    chrome.tabs.get(poActiveInfo.tabId, function (poTab) {
+    chrome.tabs.get(poActiveInfo.tabId, function(pTab){
         socket.send(JSON.stringify({
-            sUrl: poTab.url,
-            iTabId: poTab.id,
+            sUrl: pTab.url,
+            iTabId: poActiveInfo.tabId,
             sMessage: "switched"
         }));
     });
