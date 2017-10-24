@@ -251,7 +251,7 @@ const startServer = function () {
                                         if (iUrlRequestsProcessed == oConfigEntry.clearurl.length) {
                                             // trigger reload
                                             setTimeout(function() {
-                                                socket.send(JSON.stringify(iglTabIdLast));
+                                                socket.send(JSON.stringify({iTabId: iglTabIdLast}));
                                             }, oConfigEntry.latency);
                                         }
                                     }
@@ -263,7 +263,7 @@ const startServer = function () {
                             } else {
                                 // without cache handle just trigger reload with latency from config file
                                 setTimeout(function() {
-                                    socket.send(JSON.stringify(iglTabIdLast));
+                                    socket.send(JSON.stringify({iTabId: iglTabIdLast}));
                                 }, oConfigEntry.latency);
                             }
                         }

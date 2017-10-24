@@ -1,5 +1,6 @@
 // Kindly provided by guresicpark.com
 
+// Global variables
 var log = console.log.bind(console);
 var socket = io.connect('http://localhost:1337');
 var blServerConnection = false,
@@ -21,15 +22,19 @@ socket.on('connect', function() {
     chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
 });
 
-socket.on('message', function (jsonData) {
-    var aData = JSON.parse(jsonData);
+socket.on('message', function (jsonDataFromServer) {
+    var aData = JSON.parse(jsonDataFromServer);
     var iTabId = aData.iTabId;
-    chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
-    if (typeof glaUpdatingPorts[iTabId] !== 'undefined' && glaUpdatingPorts[iTabId]) {
-        glaUpdatingPorts[iTabId].postMessage(JSON.stringify({command: 'reload'}));
-	} else {
-        chrome.tabs.reload(iTabId, {bypassCache: true});
+    if (typeof iTabId === 'undefined' || !iTabId) {
+		return;
     }
+    
+
+
+
+    chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
+    chrome.tabs.reload(iTabId, {bypassCache: true});
+
     /* if (typeof glaUpdatingPorts !== 'undefined' && glaUpdatingPorts) {
         var iIndex = glaUpdatingPorts.indexOf(iTabId);
         if (iIndex > -1) {
@@ -108,17 +113,11 @@ function fnHandleDevToolsPackages(pjsonPackageFromDevtools, poSender, pfnSendRes
  * On connection with devtools
  */
 chrome.extension.onConnect.addListener(function (port) {
-    chrome.tabs.getSelected(null, function(poTabActive){
-        var iTabId = poTabActive.id;
-        glaUpdatingPorts[iTabId] = port;
-    });
+    var oMessage = JSON.parse(port.name);
+    if (typeof oMessage.iTabId !== 'undefined' && oMessage.iTabId) {
+        log(oMessage.iTabId)
+		glaUpdatingPorts[oMessage.iTabId] = port;	
+	}
     port.onDisconnect.addListener(function(port) {
-        chrome.tabs.getSelected(null, function(poTabActive){
-            var iTabId = poTabActive.id;
-            var iIndex = glaUpdatingPorts.indexOf(iTabId);
-            if (iIndex > -1) {
-                glaUpdatingPorts.splice(iIndex, 1);
-            }
-        });
     });
 })

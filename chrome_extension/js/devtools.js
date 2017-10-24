@@ -26,13 +26,12 @@ var fnHandleBackgroundMessages = function (psMessageFromBackground) {
 */
 chrome.devtools.inspectedWindow.eval('this.location', function (poLocation, isException) {
     var iTabId = chrome.devtools.inspectedWindow.tabId;
-
     // connecting port
     if (typeof gloUpdatingPort !== 'undefined' && gloUpdatingPort) {
         gloUpdatingPort.disconnect();
 	}
-    gloUpdatingPort = chrome.extension.connect();
+    gloUpdatingPort = chrome.extension.connect({name: JSON.stringify({iTabId: iTabId})});
     gloUpdatingPort.onMessage.addListener(fnHandleBackgroundMessages);
-    gloUpdatingPort.postMessage({iTabId = iTabId});
+    // gloUpdatingPort.postMessage({iTabId = iTabId});
     // glsCurrentUrl = poLocation.href.toString();
 });
