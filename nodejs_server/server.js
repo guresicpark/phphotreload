@@ -15,15 +15,29 @@ var fs = require('fs'),
 
 // global vars
 var gloWatcherConfig = void 0,
-    gloWatcherLocalFile = void 0;
+    gloWatcherLocalFile = void 0,
+    aglLocalPathsLast = [],
+    aglIgnoredLast = [],
     gloConfig = {};
 
 // functions
+
+function arraysEqual(arr1, arr2){
+    if (arr1.length !== arr2.length) {
+        return false;
+    } 
+    for (var i = 0, len = arr1.length; i < len; i++){
+        if (arr1[i] !== arr2[i]){
+            return false;
+        }
+    }
+    return true; 
+}
+
 String.prototype.getDomain = function() {
     return this.replace(/^https?:\/\//, "").replace(/^www\./, "").split('/')[0];
 };
 
-// functions
 String.prototype.normalizePath = function() {
     return this.split('\\').join('/').replace(/\/$/, '');
 };
@@ -170,7 +184,19 @@ const startServer = function () {
 						for (var i = 0; i < oConfigEntry.ignored.length; i++) {
                             aIgnored.push(oConfigEntry.ignored[i]);
                         }
-					}
+                    }
+
+                    if (aLocalPaths && arraysEqual(aLocalPaths, aglLocalPathsLast)) {
+                        if (typeof oConfigEntry.ignored !== 'undefined' && oConfigEntry.ignored
+                            && arraysEqual(oConfigEntry.ignored, aglIgnoredLast)) {
+                            // don't init new filewatcher if there is no entry in config
+                            return;	
+						}
+                    } else {
+                        aglLocalPathsLast = aLocalPaths;
+                        aglIgnoredLast = aIgnored;
+                        log('[%s phphotreload server] %s', displayTime(), "New file watcher was initialized!");
+                    }
 
                     gloWatcherLocalFile = chokidar.watch(aLocalPaths, {
                         ignored: aIgnored,

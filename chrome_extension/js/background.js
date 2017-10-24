@@ -2,9 +2,9 @@
 
 var log = console.log.bind(console);
 var socket = io.connect('http://localhost:1337');
+var blServerConnection = false;
 
 socket.on('connect', function() {
-    console.log("connected from the client side");
 
     // send current active tab
     chrome.tabs.getSelected(null, function(poTabActive){
@@ -16,18 +16,21 @@ socket.on('connect', function() {
     });
 
     // change phphotreload icon
-    chrome.browserAction.setIcon({path: "img/icon_active_16.png"});
+    blServerConnection = true;
+    chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
 });
 
 socket.on('message', function (jsonData) {
     var aData = JSON.parse(jsonData);
     var iTabId = aData.iTabId;
-    chrome.tabs.reload(iTabId);
+    chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
+    chrome.tabs.reload(iTabId, {bypassCache: true})
 });
 
 socket.on('disconnect', function () {
     // change phphotreload icon
-    chrome.browserAction.setIcon({path: "img/icon_trying_16.png"});
+    blServerConnection = false;
+    chrome.browserAction.setIcon({path: "img/icon_yellow_16.png"});
 });
 
 
@@ -36,6 +39,11 @@ socket.on('disconnect', function () {
     if(poChangeInfo.status == "complete"){
         chrome.tabs.getSelected(null, function(poTabActive){
             if (poTabActive.id == poTab.id) {
+                if (blServerConnection) {
+                    chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
+                } else {
+                    chrome.browserAction.setIcon({path: "img/icon_yellow_16.png"});
+                }
                 socket.send(JSON.stringify({
                     sUrl: poTab.url,
                     iTabId: poTab.id,
