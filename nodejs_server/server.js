@@ -18,6 +18,7 @@ var gloWatcherConfig = void 0,
     gloWatcherLocalFile = void 0,
     aglLocalPathsLast = [],
     aglIgnoredLast = [],
+    iglTabIdLast = [],
     gloConfig = {};
 
 // functions
@@ -154,9 +155,18 @@ const startServer = function () {
             socket.on('message', debounce(300, function (jsonData) {
                 var oData = JSON.parse(jsonData);
                 var sDomain = oData.sUrl.getDomain();
+
+                // do nothing for devtools
                 if (sDomain == "chrome-devtools:") {
                     return;
                 }
+
+                // do nothing when there is no tabid
+                if (typeof oData.iTabId === 'undefined' || !oData.iTabId) {
+                    return;
+                }
+                
+                iglTabIdLast = oData.iTabId;
                 log('[%s phphotreload server] %s', displayTime(), "Message from chrome: " + sDomain + ' ' + oData.sMessage);
 
                 if (oConfigEntry = getConfigurationByDomain(sDomain)) {
@@ -241,7 +251,7 @@ const startServer = function () {
                                         if (iUrlRequestsProcessed == oConfigEntry.clearurl.length) {
                                             // trigger reload
                                             setTimeout(function() {
-                                                socket.send(JSON.stringify(oData.iTabId));
+                                                socket.send(JSON.stringify(iglTabIdLast));
                                             }, oConfigEntry.latency);
                                         }
                                     }
@@ -253,7 +263,7 @@ const startServer = function () {
                             } else {
                                 // without cache handle just trigger reload with latency from config file
                                 setTimeout(function() {
-                                    socket.send(JSON.stringify(oData.iTabId));
+                                    socket.send(JSON.stringify(iglTabIdLast));
                                 }, oConfigEntry.latency);
                             }
                         }
