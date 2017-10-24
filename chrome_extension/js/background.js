@@ -3,7 +3,6 @@
 var log = console.log.bind(console);
 var socket = io.connect('http://localhost:1337');
 var blServerConnection = false,
-    gloUpdatingPort = void 0,
     glaUpdatingPorts = [];
 
 socket.on('connect', function() {
@@ -26,25 +25,26 @@ socket.on('message', function (jsonData) {
     var aData = JSON.parse(jsonData);
     var iTabId = aData.iTabId;
     chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
-    gloUpdatingPort.postMessage(JSON.stringify({command: 'reload'}));
+    if (typeof glaUpdatingPorts[iTabId] !== 'undefined' && glaUpdatingPorts[iTabId]) {
+        glaUpdatingPorts[iTabId].postMessage(JSON.stringify({command: 'reload'}));
+	} else {
+        chrome.tabs.reload(iTabId, {bypassCache: true});
+    }
     /* if (typeof glaUpdatingPorts !== 'undefined' && glaUpdatingPorts) {
         var iIndex = glaUpdatingPorts.indexOf(iTabId);
         if (iIndex > -1) {
             glaUpdatingPorts[iTabId].postMessage(JSON.stringify({iTabId: iTabId}));
         }
-    } */
-    
-    
-
-    /* var iIndex = glaUpdatingPorts.indexOf(iTabId);
+    }
+    var iIndex = glaUpdatingPorts.indexOf(iTabId);
     if (iIndex > -1) {
         // reload via devtools
         glaUpdatingPorts[iTabId].postMessage({iTabId: iTabId});    
     } else {
         // reload directly
         chrome.tabs.reload(iTabId, {bypassCache: true});
-    } */
-    /* chrome.tabs.update(iTabId, {active:true, highlighted:true}, function(tab) {
+    }
+    chrome.tabs.update(iTabId, {active:true, highlighted:true}, function(tab) {
         chrome.tabs.reload();
     });
     chrome.tabs.executeScript(iTabId, {code: 'window.location.reload()'});
@@ -52,7 +52,7 @@ socket.on('message', function (jsonData) {
 	chrome.tabs.query({active: true, currentWindow: true}, function (arrayOfTabs) {
 		var code = 'window.location.reload();';
 		chrome.tabs.executeScript(arrayOfTabs[0].id, {code: code});
-	}); */
+	});*/
 });
 
 socket.on('disconnect', function () {
@@ -107,9 +107,18 @@ function fnHandleDevToolsPackages(pjsonPackageFromDevtools, poSender, pfnSendRes
 /**
  * On connection with devtools
  */
-chrome.extension.onConnect.addListener(function (port) {    
-    gloUpdatingPort = port;
+chrome.extension.onConnect.addListener(function (port) {
+    chrome.tabs.getSelected(null, function(poTabActive){
+        var iTabId = poTabActive.id;
+        glaUpdatingPorts[iTabId] = port;
+    });
     port.onDisconnect.addListener(function(port) {
-        gloUpdatingPort = void 0;
+        chrome.tabs.getSelected(null, function(poTabActive){
+            var iTabId = poTabActive.id;
+            var iIndex = glaUpdatingPorts.indexOf(iTabId);
+            if (iIndex > -1) {
+                glaUpdatingPorts.splice(iIndex, 1);
+            }
+        });
     });
 })
