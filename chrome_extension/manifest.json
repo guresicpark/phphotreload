@@ -12,7 +12,6 @@
     "default_icon": "img/icon_16.png",
     "default_popup": "popup.html"
   },
-  "devtools_page": "devtools.html",
   "background": {
     "page": "background.html"
   },
