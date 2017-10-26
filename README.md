@@ -1,8 +1,6 @@
 # phphotreload
 
-## Installation
-
-### Clone repository
+## Getting started
 `git clone https://github.com/guresicpark/phphotreload`
 
 ### Start phphotreload nodejs server
@@ -13,7 +11,7 @@ If it fails to start because of missing node, try: `sudo ln -s /usr/bin/nodejs /
 But before you start you have to configure `/nodejs_server/config.yml` file:
 ```yaml
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
-  latency: 400 # how long to wait to reload tab after a file has changed 
+  latency: 200 # how long to wait to reload tab after a file has changed 
   updatealltabs: false # update all Chrome tabs related to this local folder
   ignored: 
     - "C:/your_local_repository/your_php_project/src/generated" # this folder please do not watch for local file changes

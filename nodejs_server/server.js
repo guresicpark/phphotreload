@@ -1,6 +1,7 @@
 // Kindly provided by guresicpark.com
 
 // importing libraries
+
 var log = console.log.bind(console),
     gloConfig = {}; // logger
 
@@ -9,11 +10,12 @@ var fs = require('fs'),
     yaml = require('js-yaml'),
     includes = require('array-includes'),
     io = require('socket.io')(1337),
-    chokidar = require('chokidar'),
+    chokidar = require('chokidar-graceful-cross-platform'),
     request = require('request'),
     debounce = require('throttle-debounce/debounce');
 
 // global vars
+
 var gloWatcherConfig = void 0,
     gloWatcherLocalFile = void 0,
     aglLocalPathsLast = [],
@@ -23,31 +25,61 @@ var gloWatcherConfig = void 0,
 
 // functions
 
-function arraysEqual(arr1, arr2){
-    if (arr1.length !== arr2.length) {
+/**
+ * Compares two arrays
+ * @param array paA first array
+ * @param array paB second array
+ * @return boolean
+ */
+function arraysEqual(paA, paB){
+    if (paA.length !== paB.length) {
         return false;
     } 
-    for (var i = 0, len = arr1.length; i < len; i++){
-        if (arr1[i] !== arr2[i]){
+    for (var i = 0, len = paA.length; i < len; i++){
+        if (paA[i] !== paB[i]){
             return false;
         }
     }
     return true; 
 }
 
+/**
+ * Checks if a string starts with a specific string
+ * @return boolean
+ */
+if (typeof String.prototype.startsWith != 'function') {
+    String.prototype.startsWith = function (str) {
+        return this.substring(0, str.length) === str;
+    }
+};
+
+/**
+ * Checks if a string ends with a specific string
+ * @return boolean
+ */
+if (typeof String.prototype.endsWith != 'function') {
+    String.prototype.endsWith = function (str) {
+        return this.substring(this.length - str.length, this.length) === str;
+    }
+};
+
+/**
+ * Extracts the domain of a url
+ */
 String.prototype.getDomain = function() {
     return this.replace(/^https?:\/\//, "").replace(/^www\./, "").split('/')[0];
 };
 
+/**
+ * Unifies slashes and removes trailing slash
+ */
 String.prototype.normalizePath = function() {
     return this.split('\\').join('/').replace(/\/$/, '');
 };
 
 /**
- * Get configuration entry for domain
- *
+ * Get configuration entry by domain
  * @param String psDomain the domain
- *
  * @return object configuration entry
  */
 var getConfigurationByDomain = function(psDomain) {
@@ -68,15 +100,20 @@ var getConfigurationByDomain = function(psDomain) {
     return false;
 };
 
+/**
+ * Get configuration entry by local file
+ * @param String psLocalFile the domain
+ * @return object configuration entry
+ */
 var getConfigurationByLocalFile = function(psLocalFile) {
     if (typeof psLocalFile === 'undefined' || !psLocalFile) {
         return false;
     }
     for (var deltaConfig in gloConfig) {
-        var sNeedle = deltaConfig.normalizePath();
-        if (psLocalFile.indexOf(sNeedle) !== -1) {
+        var sPathFromConfig = deltaConfig.normalizePath();
+        if (psLocalFile.startsWith(sPathFromConfig)) {
             var oElement = gloConfig[deltaConfig];
-            oElement['local'] = sNeedle;
+            oElement['local'] = sPathFromConfig;
             return oElement;
         }
     }
@@ -85,8 +122,7 @@ var getConfigurationByLocalFile = function(psLocalFile) {
 
 /**
  * Display current time
- *
- * Returns current time in human readable form
+ * @return String current time in human readable form
  */
 const displayTime = function () {
     var sRet = '';
@@ -108,7 +144,6 @@ const displayTime = function () {
 
 /**
  * Clear files in a tmp directory
- *
  * @param String psPath Temp directory
  */
 clearTemp = function(psPath) {
@@ -130,6 +165,9 @@ clearTemp = function(psPath) {
     }
 };
 
+/**
+ * Start phphotreload server
+ */
 const startServer = function () {
     const sConfigFile = 'config.yml';
 

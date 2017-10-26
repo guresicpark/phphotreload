@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "array-includes": "^3.0.3",
-    "chokidar": "^1.7.0",
+    "chokidar-graceful-cross-platform": "^2.0.0",
     "js-yaml": "^3.10.0",
     "request": "^2.83.0",
     "socket.io": "^2.0.4",
