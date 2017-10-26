@@ -11,24 +11,26 @@ If it fails to start because of missing node, try: `sudo ln -s /usr/bin/nodejs /
 But before you start you have to configure `/nodejs_server/config.yml` file:
 ```yaml
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
-  latency: 200 # how long to wait to reload tab after a file has changed 
-  updatealltabs: false # update all Chrome tabs related to this local folder
-  ignored: 
+  latency: 400 # how long to wait to reload tab after a file has changed 
+  updatealltabs: false # update all tabs related to this local folder
+  ignorepaths: 
     - "C:/your_local_repository/your_php_project/src/generated" # this folder please do not watch for local file changes
   extensions: # files with this extensions should be watched
     - php
     - js
     - html
-  domains: # associated domains to your local project folder C:/your_local_repository/your_php_project/src/
+  domains: # associated domains for your local project folder; glob patterns are allowed like test*.mypage.com
     - "mypage.com"
     - "mobile.mypage.org"
-  clearpath: [] # clear files in this folder locally before tab reload begins
-  clearurl: # or use a URL for example a php script to clear your cache files
+  ignoreurls: # what urls should be ignored; glob patterns are allowed like http://mypage2.com/admin/*/sub or http://mypage2.com/admin/**/sub
+    - "http://mypage2.com/admin"
+  clearpaths: [] # clear files in this folder locally before tab reload begins
+  clearurls: # or use a php script to clear your temp files
     - "http://mypage.com/clearcache.php"
 "C:/your_local_repository/your_php_project2/source/":
   latency: 600
   updatealltabs: true
-  ignored: 
+  ignorepaths: 
     - "C:/your_local_repository/your_php_project2/source/generated"
   extensions:
     - php
@@ -36,8 +38,10 @@ But before you start you have to configure `/nodejs_server/config.yml` file:
   domains:
     - "mypage2.com"
     - "mobile.mypage2.org"
-  clearpath: []
-  clearurl:
+  ignoreurls:
+    - "http://mypage2.com/admin"
+  clearpaths: []
+  clearurls:
     - "http://mypage2.com/clearmytempfiles.php"
 ```
 

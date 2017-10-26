@@ -12,15 +12,16 @@ var fs = require('fs'),
     io = require('socket.io')(1337),
     chokidar = require('chokidar-graceful-cross-platform'),
     request = require('request'),
+    micromatch = require('micromatch'),
     debounce = require('throttle-debounce/debounce');
 
 // global vars
 
 var gloWatcherConfig = void 0,
     gloWatcherLocalFile = void 0,
-    aglLocalPathsLast = [],
-    aglIgnoredLast = [],
-    iglTabIdLast = [],
+    glaLocalPathsLast = [],
+    glaIgnoredLast = [],
+    gliTabIdLast = [],
     gloConfig = {};
 
 // functions
@@ -74,7 +75,7 @@ String.prototype.getDomain = function() {
  * Unifies slashes and removes trailing slash
  */
 String.prototype.normalizePath = function() {
-    return this.split('\\').join('/').replace(/\/$/, '');
+    return this.split('\\').join('/').replace(/\/(\*+)?$/, '');
 };
 
 /**
@@ -110,8 +111,8 @@ var getConfigurationByLocalFile = function(psLocalFile) {
         return false;
     }
     for (var deltaConfig in gloConfig) {
-        var sPathFromConfig = deltaConfig.normalizePath();
-        if (psLocalFile.startsWith(sPathFromConfig)) {
+        var sPathFromConfig = deltaConfig.normalizePath() + "/**";
+        if (micromatch.isMatch(psLocalFile, sPathFromConfig)) {
             var oElement = gloConfig[deltaConfig];
             oElement['local'] = sPathFromConfig;
             return oElement;
@@ -173,7 +174,7 @@ const startServer = function () {
 
     // exit if there is no routing file
     if (!fs.existsSync(sConfigFile)) {
-        log('%s Resync server: %s does not exist - please create it a server configuration file in server root path!', displayTime(), sConfigFile);
+        log('[%s phphotreload server] %s does not exist - please create it a server configuration file in server root path!', displayTime(), sConfigFile);
         process.exit();
     }
 
@@ -191,122 +192,149 @@ const startServer = function () {
             log('[%s phphotreload server] %s', displayTime(), "Client is connected!");
 
             socket.on('message', debounce(300, function (jsonData) {
-                var oData = JSON.parse(jsonData);
-                var sDomain = oData.sUrl.getDomain();
 
-                // do nothing for devtools
-                if (sDomain == "chrome-devtools:") {
+                var oData = JSON.parse(jsonData);
+
+                // do not reload devtools tab
+                if (micromatch.isMatch(oData.sUrl, "chrome-devtools://**")) {
+                    log('[%s phphotreload server] %s', displayTime(), "chrome-devtools ignored!");
                     return;
                 }
 
-                // do nothing when there is no tabid
+                var sDomain = oData.sUrl.getDomain();
+
+                // can not refresh when there is no config entry for this domain
+                var oConfigEntryByDomain = getConfigurationByDomain(sDomain);
+                if (!oConfigEntryByDomain) {
+                    log('[%s phphotreload server] %s', displayTime(), "No entry found in config.yml for domain " + sDomain + "!");
+                    return;
+                }
+
+                // do not refresh for a ignored url
+                if (typeof oConfigEntryByDomain.ignoreurls !== 'undefined' && oConfigEntryByDomain.ignoreurls.length) {
+                    for (var i = 0; i < oConfigEntryByDomain.ignoreurls.length; i++) {
+                        var sIgnoreUrl = oConfigEntryByDomain.ignoreurls[i];
+                        if (micromatch.isMatch(oData.sUrl, sIgnoreUrl.normalizePath() + "/**")) {
+                            log('[%s phphotreload server] %s', displayTime(), "Url"+oConfigEntryByDomain.ignoreurls[i]+" is ignored!");
+                            return;
+                        }
+					}
+                }
+
+                // can not refresh when there is no tabid
                 if (typeof oData.iTabId === 'undefined' || !oData.iTabId) {
+                    log('[%s phphotreload server] %s', displayTime(), "No tab id received from Chrome!");
                     return;
                 }
                 
-                iglTabIdLast = oData.iTabId;
+                gliTabIdLast = oData.iTabId;
                 log('[%s phphotreload server] %s', displayTime(), "Message from chrome: " + sDomain + ' ' + oData.sMessage);
 
-                if (oConfigEntry = getConfigurationByDomain(sDomain)) {
+                var aLocalPaths = [];
 
-                    var aLocalPaths = [];
-
-                    if (typeof oConfigEntry.extensions !== 'undefined' && oConfigEntry.extensions.length) {
-                        for (var i = 0; i < oConfigEntry.extensions.length; i++) {
-                            var sNewLocalPath = oConfigEntry.local.normalizePath() + '/**/*.' + oConfigEntry.extensions[i];
-                            if (!includes(aLocalPaths, sNewLocalPath)) {
-                                aLocalPaths.push(sNewLocalPath);
-                            }
-                        }					    
-					}
-
-                    // pathes to watch
-                    if (gloWatcherLocalFile) {
-                        gloWatcherLocalFile.close();
-                    }
-
-                    // ignored folder
-                    var aIgnored = [/[\/\\]\./];
-
-                    if (typeof oConfigEntry.ignored !== 'undefined' && oConfigEntry.ignored.length) {
-						for (var i = 0; i < oConfigEntry.ignored.length; i++) {
-                            aIgnored.push(oConfigEntry.ignored[i]);
+                if (typeof oConfigEntryByDomain.extensions !== 'undefined' && oConfigEntryByDomain.extensions.length) {
+                    for (var i = 0; i < oConfigEntryByDomain.extensions.length; i++) {
+                        var sNewLocalPath = oConfigEntryByDomain.local.normalizePath() + '/**/*.' + oConfigEntryByDomain.extensions[i];
+                        if (!includes(aLocalPaths, sNewLocalPath)) {
+                            aLocalPaths.push(sNewLocalPath);
                         }
-                    }
-
-                    if (aLocalPaths && arraysEqual(aLocalPaths, aglLocalPathsLast)) {
-                        if (typeof oConfigEntry.ignored !== 'undefined' && oConfigEntry.ignored.length
-                            && arraysEqual(oConfigEntry.ignored, aglIgnoredLast)) {
-                            // don't init new filewatcher if there is no entry in config
-                            return;	
-						}
-                    } else {
-                        aglLocalPathsLast = aLocalPaths;
-                        aglIgnoredLast = aIgnored;
-                        log('[%s phphotreload server] %s', displayTime(), "New file watcher was initialized!");
-                    }
-
-                    gloWatcherLocalFile = chokidar.watch(aLocalPaths, {
-                        ignored: aIgnored,
-                        persistent: true,
-                        awaitWriteFinish: {
-                            stabilityThreshold: 2000,
-                            pollInterval: 200
-                        }
-                    });
-
-                    gloWatcherLocalFile.on('change', function (psChangedLocalFile, poStats) {
-                        if (oConfigEntry = getConfigurationByLocalFile(psChangedLocalFile.normalizePath())) {
-                            
-                            // clear temporary files by deleting local tmp files
-                            if (typeof oConfigEntry.clearpath !== 'undefined' && oConfigEntry.clearpath.length) {
-                                for (var i = 0; i < oConfigEntry.clearpath.length; i++) {
-                                    clearTemp(oConfigEntry.clearpath[i]);
-                                }
-                            }
-                                                        
-                            // clear temporary files by URL asynchronously
-                            if (typeof oConfigEntry.clearurl !== 'undefined' && oConfigEntry.clearurl.length) {
-                                var iUrlRequestsProcessed = 0;
-                                for (var i = 0; i < oConfigEntry.clearurl.length; i++) {
-                                    // request options
-                                    var options = {
-                                        url: oConfigEntry.clearurl[i],
-                                        headers: {
-                                            'User-Agent': 'request'
-                                        },
-                                        method: 'GET',
-                                        json: true
-                                    };
-
-                                    function handleResponse(error, response, body) {
-                                        if (error || typeof body === 'undefined' || !body) {
-                                            log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
-                                            return;
-                                        }
-                                        log('[%s phphotreload server] %s', displayTime(), "Cache task success result: " + body.message);
-                                        iUrlRequestsProcessed++;
-                                        if (iUrlRequestsProcessed == oConfigEntry.clearurl.length) {
-                                            // trigger reload
-                                            setTimeout(function() {
-                                                socket.send(JSON.stringify({iTabId: iglTabIdLast}));
-                                            }, oConfigEntry.latency);
-                                        }
-                                    }
-                                   // init request
-                                   log('[%s phphotreload server] %s', displayTime(), "Request startet for " + oConfigEntry.clearurl[i]);
-                                   request(options, handleResponse);
-                                }
-
-                            } else {
-                                // without cache handle just trigger reload with latency from config file
-                                setTimeout(function() {
-                                    socket.send(JSON.stringify({iTabId: iglTabIdLast}));
-                                }, oConfigEntry.latency);
-                            }
-                        }
-                    });
+                    }					    
+                } else {
+                    log('[%s phphotreload server] %s', displayTime(), "No extensions defined in config.yml for this domain!");
                 }
+
+                // pathes to watch
+                if (gloWatcherLocalFile) {
+                    gloWatcherLocalFile.close();
+                }
+
+                // ignored folder
+                var aIgnorePaths = [/[\/\\]\./];
+
+                if (typeof oConfigEntryByDomain.ignorepaths !== 'undefined' && oConfigEntryByDomain.ignorepaths.length) {
+                    for (var i = 0; i < oConfigEntryByDomain.ignorepaths.length; i++) {
+                        aIgnorePaths.push(oConfigEntryByDomain.ignorepaths[i]);
+                    }
+                }
+
+                if (aLocalPaths && arraysEqual(aLocalPaths, glaLocalPathsLast)) {
+                    if (typeof oConfigEntryByDomain.ignorepaths !== 'undefined' && oConfigEntryByDomain.ignorepaths.length
+                        && arraysEqual(oConfigEntryByDomain.ignorepaths, glaIgnoredLast)) {
+                        // don't init new filewatcher if there is no entry in config
+                        return;	
+                    }
+                } else {
+                    glaLocalPathsLast = aLocalPaths;
+                    glaIgnoredLast = aIgnorePaths;
+                    log('[%s phphotreload server] %s', displayTime(), "New file watcher was initialized!");
+                }
+
+                gloWatcherLocalFile = chokidar.watch(aLocalPaths, {
+                    ignored: aIgnorePaths,
+                    persistent: true,
+                    awaitWriteFinish: {
+                        stabilityThreshold: 2000,
+                        pollInterval: 200
+                    }
+                });
+
+                gloWatcherLocalFile.on('change', function (psChangedLocalFile, poStats) {
+
+                    var sChangedLocalFile = psChangedLocalFile.normalizePath();
+
+                    var oConfigEntryByLocalFile = getConfigurationByLocalFile(sChangedLocalFile);
+                    if (!oConfigEntryByLocalFile) {
+                        log('[%s phphotreload server] %s', displayTime(), "No entry found in config.yml for changed local file " + sChangedLocalFile + "!");
+                        return;
+                    }
+                        
+                    // clear temporary files by deleting local tmp files
+                    if (typeof oConfigEntryByLocalFile.clearpaths !== 'undefined' && oConfigEntryByLocalFile.clearpaths.length) {
+                        for (var i = 0; i < oConfigEntryByLocalFile.clearpaths.length; i++) {
+                            clearTemp(oConfigEntryByLocalFile.clearpaths[i]);
+                        }
+                    }
+                                                
+                    // clear temporary files by URL asynchronously
+                    if (typeof oConfigEntryByLocalFile.clearurls !== 'undefined' && oConfigEntryByLocalFile.clearurls.length) {
+                        var iUrlRequestsProcessed = 0;
+                        for (var i = 0; i < oConfigEntryByLocalFile.clearurls.length; i++) {
+                            // request options
+                            var options = {
+                                url: oConfigEntryByLocalFile.clearurls[i],
+                                headers: {
+                                    'User-Agent': 'request'
+                                },
+                                method: 'GET',
+                                json: true
+                            };
+
+                            function handleResponse(error, response, body) {
+                                if (error || typeof body === 'undefined' || !body) {
+                                    log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
+                                    return;
+                                }
+                                log('[%s phphotreload server] %s', displayTime(), "Cache task success result: " + body.message);
+                                iUrlRequestsProcessed++;
+                                if (iUrlRequestsProcessed == oConfigEntryByLocalFile.clearurls.length) {
+                                    // trigger reload
+                                    setTimeout(function() {
+                                        socket.send(JSON.stringify({iTabId: gliTabIdLast}));
+                                    }, oConfigEntryByLocalFile.latency);
+                                }
+                            }
+                            // init request
+                            log('[%s phphotreload server] %s', displayTime(), "Request startet for " + oConfigEntryByLocalFile.clearurls[i]);
+                            request(options, handleResponse);
+                        }
+
+                    } else {
+                        // just trigger reload without cache clear action
+                        setTimeout(function() {
+                            socket.send(JSON.stringify({iTabId: gliTabIdLast}));
+                        }, oConfigEntryByLocalFile.latency);
+                    }
+                });
             }));
 
             socket.on('disconnect', function () {
