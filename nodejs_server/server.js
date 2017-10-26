@@ -75,7 +75,7 @@ String.prototype.getDomain = function() {
  * Unifies slashes and removes trailing slash
  */
 String.prototype.normalizePath = function() {
-    return this.split('\\').join('/').replace(/\/(\*+)?$/, '');
+    return this.split('\\').join('/').replace(/\/(\*+)?\s*$/, '');
 };
 
 /**
@@ -191,7 +191,7 @@ const startServer = function () {
 
             log('[%s phphotreload server] %s', displayTime(), "Client is connected!");
 
-            socket.on('message', debounce(300, function (jsonData) {
+            socket.on('message', debounce(200, function (jsonData) {
 
                 var oData = JSON.parse(jsonData);
 
@@ -278,7 +278,8 @@ const startServer = function () {
                     }
                 });
 
-                gloWatcherLocalFile.on('change', function (psChangedLocalFile, poStats) {
+
+                gloWatcherLocalFile.on('change', debounce(200, function (psChangedLocalFile, poStats) {
 
                     var sChangedLocalFile = psChangedLocalFile.normalizePath();
 
@@ -334,7 +335,7 @@ const startServer = function () {
                             socket.send(JSON.stringify({iTabId: gliTabIdLast}));
                         }, oConfigEntryByLocalFile.latency);
                     }
-                });
+                }));
             }));
 
             socket.on('disconnect', function () {
