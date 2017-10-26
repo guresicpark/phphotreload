@@ -194,14 +194,15 @@ const startServer = function () {
             socket.on('message', debounce(200, function (jsonData) {
 
                 var oData = JSON.parse(jsonData);
-
-                // do not reload devtools tab
-                if (micromatch.isMatch(oData.sUrl, "chrome-devtools://**")) {
-                    log('[%s phphotreload server] %s', displayTime(), "chrome-devtools ignored!");
+                var sUrl = oData.sUrl.normalizePath();
+                
+                // do not reload internal chrome tabs
+                if (sUrl.startsWith("chrome://")) {
                     return;
                 }
 
-                var sDomain = oData.sUrl.getDomain();
+                // extract domain
+                var sDomain = sUrl.getDomain();
 
                 // can not refresh when there is no config entry for this domain
                 var oConfigEntryByDomain = getConfigurationByDomain(sDomain);
@@ -214,7 +215,7 @@ const startServer = function () {
                 if (typeof oConfigEntryByDomain.ignoreurls !== 'undefined' && oConfigEntryByDomain.ignoreurls.length) {
                     for (var i = 0; i < oConfigEntryByDomain.ignoreurls.length; i++) {
                         var sIgnoreUrl = oConfigEntryByDomain.ignoreurls[i];
-                        if (micromatch.isMatch(oData.sUrl, sIgnoreUrl.normalizePath() + "/**")) {
+                        if (micromatch.isMatch(sUrl, sIgnoreUrl.normalizePath() + "/**")) {
                             log('[%s phphotreload server] %s', displayTime(), "Url"+oConfigEntryByDomain.ignoreurls[i]+" is ignored!");
                             return;
                         }
