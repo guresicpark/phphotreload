@@ -29,7 +29,12 @@ socket.on('message', function (jsonDataFromServer) {
 		return;
     }
     chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
-    chrome.tabs.reload(iTabId, {bypassCache: true});
+    try {
+        chrome.tabs.reload(iTabId, {bypassCache: true});
+    } catch (e) {
+        // fallback
+        chrome.tabs.executeScript(iTabId, {code: 'window.location.reload()'});
+    }
 });
 
 socket.on('disconnect', function () {

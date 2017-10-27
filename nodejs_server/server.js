@@ -329,7 +329,7 @@ const startServer = function () {
                                 }
                             }
                             // init request
-                            log('[%s phphotreload server] %s', displayTime(), "Request startet for " + oConfigEntryByLocalFile.clearurls[i]);
+                            log('[%s phphotreload server] %s', displayTime(), "Cache task request " + oConfigEntryByLocalFile.clearurls[i] + "started!");
                             request(options, handleResponse);
                         }
 
