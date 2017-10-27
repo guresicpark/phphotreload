@@ -4,10 +4,10 @@
 var log = console.log.bind(console),
     gloSocket = io.connect('http://localhost:1337'),
     glblServerConnection = false,
-    gliTabIdLast = void 0;
+    gliTabReloadedBefore = void 0,
+    glblTabWasReloaded = false;
 
 gloSocket.on('connect', function() {
-
     // send current active tab
     chrome.tabs.getSelected(null, function(poActiveTab){
         gloSocket.send(JSON.stringify({
@@ -16,7 +16,6 @@ gloSocket.on('connect', function() {
             sMessage: "initialized"
         }));
     });
-
     // change phphotreload icon
     glblServerConnection = true;
     chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
@@ -25,14 +24,20 @@ gloSocket.on('connect', function() {
 gloSocket.on('message', function (jsonDataFromServer) {
     var aData = JSON.parse(jsonDataFromServer);
     var iTabId = aData.iTabId;
-    if (typeof iTabId === 'undefined' || !iTabId) {
-		iTabId = gliTabIdLast;
-    }
-    if (typeof iTabId !== 'undefined' && iTabId) {
-        chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
-        chrome.tabs.reload(iTabId, {bypassCache: true});
-        gliTabIdLast = iTabId;	
-	}
+    chrome.browserAction.setIcon({path: "img/icon_red_16.png"});
+    
+    // remember tab id
+    gliTabReloadedBefore = iTabId;
+    chrome.tabs.reload(iTabId, {bypassCache: true}, function(){
+        // check if tab was really reloaded
+        if (glblTabWasReloaded) {
+            glblTabWasReloaded = false;
+        } else {
+            // backup tab reload
+            chrome.tabs.executeScript(iTabId, {code: 'window.location.reload()'});
+            gliTabReloadedBefore = void 0;
+        }
+    });
 });
 
 gloSocket.on('disconnect', function () {
@@ -44,6 +49,11 @@ gloSocket.on('disconnect', function () {
 
 // After tab was reloaded or a link was clicked
  chrome.tabs.onUpdated.addListener(function (pTabId, poChangeInfo, poTab) {
+    if ((typeof gliTabReloadedBefore !== 'undefined' && gliTabReloadedBefore)
+            && gliTabReloadedBefore == poTab.id) {
+        gliTabReloadedBefore = void 0;
+        glblTabWasReloaded = true;
+    }
     if(poChangeInfo.status == "complete"){
         if (glblServerConnection) {
             chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
