@@ -154,8 +154,7 @@ clearTemp = function(psPath) {
     var psPath = psPath.replace(/\/$/, '');
     try {
         var files = fs.readdirSync(psPath);
-    }
-    catch (e) {
+    } catch (e) {
         return false;
     }
     for (var i = 0; i < files.length; i++) {
@@ -164,6 +163,7 @@ clearTemp = function(psPath) {
             fs.unlinkSync(sFilePathFull);
         }
     }
+    log('[%s phphotreload server] %s', displayTime(), "Local cache files successfully purges in " + sFilePathFull);
 };
 
 /**
