@@ -267,20 +267,21 @@ const startServer = function () {
                 } else {
                     glaLocalPathsLast = aLocalPaths;
                     glaIgnoredLast = aIgnorePaths;
-                    log('[%s phphotreload server] %s', displayTime(), "New file watcher was initialized!");
+                    log('[%s phphotreload server] %s', displayTime(), "Starting initialization of file watcher for " + sDomain + "...");
                 }
 
                 gloWatcherLocalFile = chokidar.watch(aLocalPaths, {
                     ignored: aIgnorePaths,
                     persistent: true,
-                    awaitWriteFinish: {
-                        stabilityThreshold: 2000,
-                        pollInterval: 200
-                    }
+                    ignorePermissionErrors: false,
+                    depth: 30,
+                    usePolling: false,
+                    atomic: true
                 });
 
-
-                gloWatcherLocalFile.on('change', debounce(200, function (psChangedLocalFile, poStats) {
+                gloWatcherLocalFile.on('ready', function (psChangedLocalFile, poStats) {
+                    log('[%s phphotreload server] %s', displayTime(), "Initialization of file watcher for " + sDomain + " finished!");
+                }).on('change', debounce(200, function (psChangedLocalFile, poStats) {
 
                     var sChangedLocalFile = psChangedLocalFile.normalizePath();
 
@@ -329,7 +330,7 @@ const startServer = function () {
                                 }
                             }
                             // init request
-                            log('[%s phphotreload server] %s', displayTime(), "Cache task request " + oConfigEntryByLocalFile.clearurls[i] + "started!");
+                            log('[%s phphotreload server] %s', displayTime(), "Cache task request " + oConfigEntryByLocalFile.clearurls[i] + " started!");
                             request(options, handleResponse);
                         }
 
@@ -355,10 +356,8 @@ const startServer = function () {
         gloWatcherConfig = chokidar.watch(sConfigFile, {
             ignored: /[\/\\]\./,
             persistent: true,
-            awaitWriteFinish: {
-                stabilityThreshold: 2000,
-                pollInterval: 200
-            }
+            usePolling: false,
+            atomic: true
         });
 
         gloWatcherConfig.on('change', function (psChangedLocalFile, poStats) {
