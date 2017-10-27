@@ -284,6 +284,8 @@ const startServer = function () {
 
                     var sChangedLocalFile = psChangedLocalFile.normalizePath();
 
+                    log('[%s phphotreload server] %s', displayTime(), "Local file " + sChangedLocalFile + " changed!");
+
                     var oConfigEntryByLocalFile = getConfigurationByLocalFile(sChangedLocalFile);
                     if (!oConfigEntryByLocalFile) {
                         log('[%s phphotreload server] %s', displayTime(), "No entry found in config.yml for changed local file " + sChangedLocalFile + "!");
@@ -321,6 +323,7 @@ const startServer = function () {
                                 if (iUrlRequestsProcessed == oConfigEntryByLocalFile.clearurls.length) {
                                     // trigger reload
                                     setTimeout(function() {
+                                        log('[%s phphotreload server] %s', displayTime(), "Reload request for TabId " + gliTabIdLast + " sent to Chrome!");
                                         socket.send(JSON.stringify({iTabId: gliTabIdLast}));
                                     }, oConfigEntryByLocalFile.latency);
                                 }
@@ -333,6 +336,7 @@ const startServer = function () {
                     } else {
                         // just trigger reload without cache clear action
                         setTimeout(function() {
+                            log('[%s phphotreload server] %s', displayTime(), "Reload request for TabId " + gliTabIdLast + " sent to Chrome!");
                             socket.send(JSON.stringify({iTabId: gliTabIdLast}));
                         }, oConfigEntryByLocalFile.latency);
                     }
