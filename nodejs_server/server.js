@@ -12,7 +12,7 @@ var fs = require('fs'),
     io = require('socket.io')(1337),
     chokidar = require('chokidar-graceful-cross-platform'),
     request = require('request'),
-    micromatch = require('micromatch'),
+    wildstring = require('wildstring'),
     debounce = require('throttle-debounce/debounce');
 
 // global vars
@@ -94,7 +94,7 @@ var getConfigurationByDomain = function(psDomain) {
         }
         var aDomains = oElement.domains;
         if (includes(aDomains, psDomain)) {
-            oElement['local'] = deltaConfig.normalizePath();
+            oElement['localpath'] = deltaConfig.normalizePath();
             return oElement;
         }
     }
@@ -111,10 +111,10 @@ var getConfigurationByLocalFile = function(psLocalFile) {
         return false;
     }
     for (var deltaConfig in gloConfig) {
-        var sPathFromConfig = deltaConfig.normalizePath() + "/**";
-        if (micromatch.isMatch(psLocalFile, sPathFromConfig)) {
+        var sPathFromConfig = deltaConfig.normalizePath() + "*";        
+        if (wildstring.match(sPathFromConfig, psLocalFile)) {
             var oElement = gloConfig[deltaConfig];
-            oElement['local'] = sPathFromConfig;
+            oElement['localpath'] = sPathFromConfig;
             return oElement;
         }
     }
@@ -215,7 +215,7 @@ const startServer = function () {
                 if (typeof oConfigEntryByDomain.ignoreurls !== 'undefined' && oConfigEntryByDomain.ignoreurls.length) {
                     for (var i = 0; i < oConfigEntryByDomain.ignoreurls.length; i++) {
                         var sIgnoreUrl = oConfigEntryByDomain.ignoreurls[i];
-                        if (micromatch.isMatch(sUrl, sIgnoreUrl.normalizePath() + "/**")) {
+                        if (wildstring.match(sIgnoreUrl.normalizePath()+"*", sUrl)) {
                             log('[%s phphotreload server] %s', displayTime(), "Url"+oConfigEntryByDomain.ignoreurls[i]+" is ignored!");
                             return;
                         }
@@ -235,7 +235,7 @@ const startServer = function () {
 
                 if (typeof oConfigEntryByDomain.extensions !== 'undefined' && oConfigEntryByDomain.extensions.length) {
                     for (var i = 0; i < oConfigEntryByDomain.extensions.length; i++) {
-                        var sNewLocalPath = oConfigEntryByDomain.local.normalizePath() + '/**/*.' + oConfigEntryByDomain.extensions[i];
+                        var sNewLocalPath = oConfigEntryByDomain.localpath.normalizePath() + '/**/*.' + oConfigEntryByDomain.extensions[i];
                         if (!includes(aLocalPaths, sNewLocalPath)) {
                             aLocalPaths.push(sNewLocalPath);
                         }
