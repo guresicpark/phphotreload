@@ -163,7 +163,7 @@ clearTemp = function(psPath) {
             fs.unlinkSync(sFilePathFull);
         }
     }
-    log('[%s phphotreload server] %s', displayTime(), "Local cache files successfully purges in " + sFilePathFull);
+    log('[%s phphotreload server] %s', displayTime(), "Local cache files in " + sFilePathFull + " successfully deleted!");
 };
 
 /**

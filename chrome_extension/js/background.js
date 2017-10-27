@@ -42,8 +42,8 @@ socket.on('disconnect', function () {
 // After tab was reloaded or a link was clicked
  chrome.tabs.onUpdated.addListener(function (pTabId, poChangeInfo, poTab) {
     if(poChangeInfo.status == "complete"){
-        chrome.tabs.getSelected(null, function(poActiveTab){
-            if (poActiveTab.id == poTab.id) {
+        // chrome.tabs.getSelected(null, function(poActiveTab){
+            // if (poActiveTab.id == poTab.id) {
                 if (blServerConnection) {
                     chrome.browserAction.setIcon({path: "img/icon_green_16.png"});
                 } else {
@@ -54,8 +54,8 @@ socket.on('disconnect', function () {
                     iTabId: poTab.id,
                     sMessage: "reloaded"
                 }));
-            }
-        });
+            // }
+        // });
     }
 });
 
