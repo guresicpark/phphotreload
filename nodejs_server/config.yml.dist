@@ -1,5 +1,6 @@
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
-  latency: 400 # how long to wait to reload tab after a file has changed 
+  latency: 400 # how long to wait to reload tab after a file has changed
+  debounce: 400 # reaction time of file change debounce timer
   updatealltabs: false # update all tabs related to this local folder
   ignorepaths: 
     - "C:/your_local_repository/your_php_project/src/generated" # this folder please do not watch for local file changes

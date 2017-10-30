@@ -10,7 +10,8 @@ But before you start the server you have to update `/nodejs_server/config.yml` c
 ```yaml
 # config.yml
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
-  latency: 400 # how long to wait to reload tab after a file has changed 
+  latency: 200 # how long to wait to reload tab after a file has changed, 200ms here
+  debounce: 400 # reaction time of file change debounce timer, 400ms here
   updatealltabs: false # update all tabs related to this local folder
   ignorepaths: 
     - "C:/your_local_repository/your_php_project/src/generated" # please do not watch this folder for local file changes
