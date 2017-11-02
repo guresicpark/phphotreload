@@ -245,6 +245,11 @@ const startServer = function () {
         if (io.server) {
             io.server.close();
         }
+
+        if (typeof gloEventEmitter === 'undefined') {
+			gloEventEmitter = new events.EventEmitter();
+		}
+
         io.on('connection', function (oSocket) {
 
             // on connection
