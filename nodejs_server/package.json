@@ -12,9 +12,9 @@
   "dependencies": {
     "array-includes": "^3.0.3",
     "chokidar-graceful-cross-platform": "^2.0.0",
-    "js-yaml": "^3.10.0",
-    "request": "^2.83.0",
-    "socket.io": "^2.0.4",
+    "js-yaml": "^3.11.0",
+    "request": "^2.85.0",
+    "socket.io": "^2.1.0",
     "throttle-debounce": "^1.0.1",
     "wildstring": "^1.0.9"
   }
