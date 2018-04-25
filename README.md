@@ -3,14 +3,21 @@
 ## Getting started
 `git clone https://github.com/guresicpark/phphotreload`
 
+### Install phphotreload Chrome plugin
+In Chrome browser enable developers mode (in Chrome's extensions tab) and open/load folder `/chrome_extension` as an Chrome extension. There should appear a yellow round icon on the Chrome extension bar, that will turn green when it is connected to your running node js server.
+
 ### Start phphotreload nodejs server
-Go to phphotreload server `cd /nodejs_server` and type `npm install`. You can start the server it with `npm start`. If it fails to start because node js is missing, you can execute in your bash: `sudo ln -s /usr/bin/nodejs /usr/bin/node` and you can try again `npm start`.
+Go to phphotreload server `cd /nodejs_server` and type `npm install`.
+
+You can start the server it with `npm start`.
+
+If it fails to start because node js is missing, you can execute in your bash: `sudo ln -s /usr/bin/nodejs /usr/bin/node` and you can try again `npm start`.
 
 But before you start the server you have to update `/nodejs_server/config.yml` configuration file to match your project sources:
 ```yaml
 # config.yml
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
-  latency: 200 # how long to wait to reload tab after a file has changed, 200ms here
+  latency: 400 # how long to wait to reload tab after a file has changed, 200ms here
   debounce: 400 # reaction time of file change debounce timer, 400ms here
   updatealltabs: false # update all tabs related to this local folder
   ignorepaths: 
@@ -32,8 +39,30 @@ But before you start the server you have to update `/nodejs_server/config.yml` c
     - "http://mypage.com/clearcache.php"
 # next entry...
 ```
+Example config:
+```yml
+"/home/bla/Workspace/blabla/src/":
+  latency: 400
+  debounce: 400
+  updatealltabs: false
+  ignorepaths: []
+  extensions:
+    - php
+    - js
+    - html
+  domains:
+    - "blabla.dev.local"
+  ignoreurls:
+    - "http://blabla.dev.local/admin"
+  clearpaths: []
+  clearurls:
+    - "http://blabla.dev.local/clrtmp.php"
+```
+Don't forget to copy clrtmp.php from phphotreload repository in your project root.
 
-### Install phphotreload Chrome plugin
-In Chrome browser enable developers mode (in Chrome's extensions tab) and open/load folder `/chrome_extension` as an Chrome extension. There should appear a yellow round icon on the Chrome extension bar, that turns green when connected to node js server.
+### Linux system setting
+On Ubunto execute the following commands in terminal to increase count of watched items:
+- add entry for maximum watch items: `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf`
+- reconfigure linux kernel on the fly: `sudo sysctl -p`
 
-Congratulations, you installed phphotreload!
+Congratulations, you installed successfully phphotreload!
