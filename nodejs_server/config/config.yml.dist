@@ -16,19 +16,3 @@
   clearpaths: [] # clear files in this folder locally before tab reload begins
   clearurls: # or use a php script to clear your temp files
     - "http://mypage.com/clearcache.php"
-"C:/your_local_repository/your_php_project2/source/":
-  latency: 600
-  updatealltabs: true
-  ignorepaths: 
-    - "C:/your_local_repository/your_php_project2/source/generated"
-  extensions:
-    - php
-    - js
-  domains:
-    - "mypage2.com"
-    - "mobile.mypage2.org"
-  ignoreurls:
-    - "http://mypage2.com/admin"
-  clearpaths: []
-  clearurls:
-    - "http://mypage2.com/clearmytempfiles.php"

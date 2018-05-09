@@ -40,5 +40,5 @@ Thumbs.db
 
 #custom
 /nodejs_server/node_modules
-/nodejs_server/config.yml
+/nodejs_server/config/*
 /nodejs_server/package-lock.json

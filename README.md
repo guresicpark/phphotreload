@@ -13,7 +13,7 @@ You can start the server it with `npm start`.
 
 If it fails to start because node js is missing, you can execute in your bash: `sudo ln -s /usr/bin/nodejs /usr/bin/node` and you can try again `npm start`.
 
-But before you start the server you have to update `/nodejs_server/config.yml` configuration file to match your project sources:
+But before you start the node js server you have to add a config file under `/nodejs_server/config/my_config.yml` that matches your specific project data, like for example:
 ```yaml
 # config.yml
 "C:/your_local_repository/your_php_project/src/": # what folder to watch for local file changes
@@ -37,7 +37,7 @@ But before you start the server you have to update `/nodejs_server/config.yml` c
   clearpaths: [] # clear files in this folder locally before tab reload begins
   clearurls: # or use a php script to clear your temp files
     - "http://mypage.com/clearcache.php"
-# next entry...
+# next entry here possible...
 ```
 Example config:
 ```yml
@@ -58,10 +58,10 @@ Example config:
   clearurls:
     - "http://blabla.dev.local/clrtmp.php"
 ```
-Don't forget to copy clrtmp.php from phphotreload repository in your project root.
+Don't forget to copy cache delete script provided by phphotreload to your server root.
 
 ### Linux system setting
-On Ubunto execute the following commands in terminal to increase count of watched items:
+On Ubuntu execute the following commands in terminal to increase count of watched files:
 - add entry for maximum watch items: `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf`
 - reconfigure linux kernel on the fly: `sudo sysctl -p`
 

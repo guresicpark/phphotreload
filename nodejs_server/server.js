@@ -1,8 +1,7 @@
 // Kindly provided by guresicpark.com
 
 // importing libraries
-var log = console.log.bind(console),
-    gloConfig = {}; // logger
+var log = console.log.bind(console); // logger
 
 var fs = require('fs'),
     path = require('path'),
@@ -24,6 +23,16 @@ var glaWatcher = [],
     gloConfig = {};
 
 // functions
+
+/**
+ * Checks if an array has a specific value
+ * @param arr array haystack
+ * @param obj object needle
+ * @return boolean
+ */
+function inArray(arr, obj) {
+    return (arr.indexOf(obj) != -1);
+}
 
 /**
  * Compares two arrays
@@ -147,7 +156,7 @@ const displayTime = function () {
  */
 const startServer = function () {
 
-    const sConfigFile = 'config.yml';
+    const sConfigPath = "config";
 
     /**
      * Initialize file watcher
@@ -159,7 +168,7 @@ const startServer = function () {
         if (typeof paLocalPaths === 'undefined' || !paLocalPaths.length) {
             return;
         }
-        var paIgnorePaths = typeof paIgnorePaths !== 'undefined' && paIgnorePaths.length ? paIgnorePaths : [/[\/\\]\./];
+        paIgnorePaths = typeof paIgnorePaths !== 'undefined' && paIgnorePaths.length ? paIgnorePaths : [/[\/\\]\./];
 
         // pathes to watch
         if (typeof glaWatcher !== 'undefined' && glaWatcher.length) {
@@ -193,7 +202,9 @@ const startServer = function () {
         if (typeof psPath === 'undefined' || !psPath) {
             return false;
         }
-        var psPath = psPath.replace(/\/$/, '');
+
+        psPath = psPath.replace(/\/$/, '');
+
         try {
             var files = fs.readdirSync(psPath);
         } catch (e) {
@@ -204,10 +215,94 @@ const startServer = function () {
             if (fs.statSync(sFilePathFull).isFile()) {
                 try {
                     fs.unlinkSync(sFilePathFull);    
+                } catch (error) {
+                    return false;
+                }
+            }
+        }
+        log('[%s phphotreload server] %s', displayTime(), "Local cache files in " + psPath + "/* successfully deleted!");
+    };
+
+    /**
+     * Get a list of all configuration files
+     */
+    getConfigFiles = function () {
+        aRet = [];
+
+        try {
+            var files = fs.readdirSync(sConfigPath);
+        } catch (e) {
+            return false;
+        }
+
+        for (var i = 0; i < files.length; i++) {
+            var sFile = files[i];
+            if (sFile == "config.yml.dist") {
+                continue;
+            }
+            var sFilePathFull = sConfigPath + '/' + sFile;
+            if (fs.statSync(sFilePathFull).isFile()) {
+                aRet.push(sFilePathFull);
+            }
+        }
+
+        // checks if array is empty
+        if (aRet.length == 0) {
+            return false;
+        }
+
+        return aRet;
+    }
+
+    /**
+     * Load all configuration files
+     * @param psFile what pathes to watch
+     */
+    loadConfig = function (psFile) {
+
+        oRet = {};
+
+        // default values
+        if (typeof psFile !== 'undefined' || psFile) {
+            var sFilePathFull = sConfigPath + '/' + psFile;
+            oConfig = yaml.safeLoad(fs.readFileSync(sFilePathFull, 'utf8'));
+            for (var deltaConfig in oConfig) {
+                oRet[deltaConfig] = oConfig[deltaConfig];
+            }
+            // checks if object is empty
+            if (Object.getOwnPropertyNames(oRet).length == 0) {
+                return false;
+            }
+            return oRet;
+        }
+
+        try {
+            var files = fs.readdirSync(sConfigPath);
+        } catch (e) {
+            return false;
+        }
+
+        for (var i = 0; i < files.length; i++) {
+            var sFile = files[i];
+            if (sFile == "config.yml.dist") {
+                continue;
+            }
+            var sFilePathFull = sConfigPath + '/' + sFile;
+            if (fs.statSync(sFilePathFull).isFile()) {
+                try {
+                    oConfig = yaml.safeLoad(fs.readFileSync(sFilePathFull, 'utf8'));
+                    for (var deltaConfig in oConfig) {
+                        oRet[deltaConfig] = oConfig[deltaConfig];
+                    }
                 } catch (error) { }
             }
         }
-        log('[%s phphotreload server] %s', displayTime(), "Local cache files in " + sFilePathFull + " successfully deleted!");
+
+        // checks if object is empty
+        if (Object.getOwnPropertyNames(oRet).length == 0) {
+            return false;
+        }
+        return oRet;
     };
 
     /**
@@ -222,25 +317,29 @@ const startServer = function () {
         if (typeof piTabIdLast === 'undefined' || !piTabIdLast) {
             return;
         }
-        var piLatency = typeof piLatency !== 'undefined' && piLatency ? piLatency : 0;
+        piLatency = typeof piLatency !== 'undefined' && piLatency ? piLatency : 0;
         setTimeout(function () {
             log('[%s phphotreload server] %s', displayTime(), "Reload request for TabId " + gliTabIdLast + " sent to Chrome!");
             posocket.send(JSON.stringify({ iTabId: gliTabIdLast }));
         }, piLatency);
     }
 
-    // is there no routing file exit server
-    if (!fs.existsSync(sConfigFile)) {
-        log('[%s phphotreload server] %s does not exist - please create it a server configuration file in server root path!', displayTime(), sConfigFile);
-        process.exit();
-    }
-
     // get routing data from routing file
     try {
-        // initial config file load
-        gloConfig = yaml.safeLoad(fs.readFileSync(sConfigFile, 'utf8'));
+        // try to load some config files
+        gloConfig = loadConfig();
+        
+        // is there no routing file exit server
+        if (!gloConfig) {
+            log('[%s phphotreload server] configuration file do not exist - please create a server configuration file under ./config/your_config.yml!', displayTime());
+            process.exit();
+        }
 
-        var aLocalPaths = [sConfigFile];
+        aConfigFiles = getConfigFiles();
+
+        var aLocalPaths = [];
+        aLocalPaths = aLocalPaths.concat(aConfigFiles);
+
         var aIgnorePaths = [/[\/\\]\./];
 
         // on connection with client
@@ -359,7 +458,7 @@ const startServer = function () {
                             var sWatcherInitPath = aLocalPaths[iCounterWatcherInit - 1];
                             aWatcherInitPath = sWatcherInitPath.split("**/");
                             sWatcherInitPath = typeof aWatcherInitPath[1] !== 'undefined' && aWatcherInitPath[1] ? aWatcherInitPath[1] : sWatcherInitPath;
-                            if (sWatcherInitPath != sConfigFile) {
+                            if (!inArray(aConfigFiles, sWatcherInitPath) ) {
                                 log('[%s phphotreload server] %s', displayTime(), "File watcher " + sWatcherInitPath + " initialized!");
                             }
                             if (iCounterWatcherInit >= glaWatcher.length) {
@@ -378,8 +477,7 @@ const startServer = function () {
                     gloEventEmitter = new events.EventEmitter();
 
                     gloEventEmitter.on('changed', debounce(iDebounce, function (psChangedLocalFile) {
-
-                        if (psChangedLocalFile == sConfigFile) {
+                        if (inArray(aConfigFiles, psChangedLocalFile)) {
                             log('[%s phphotreload server] %s', displayTime(), "Configuration file was updated!");
                             log('[%s phphotreload server] %s', displayTime(), "Server restarted!");
                             glaLocalPathsLast = [];
@@ -469,7 +567,8 @@ const startServer = function () {
 
         });
 
-        log('[%s phphotreload server] Watching local routing file %s...', displayTime(), sConfigFile);
+        log('[%s phphotreload server] Watching local routing config files %s...', displayTime(), aConfigFiles.join(", "));
+
     } catch (err) {
         // Error
         log('[%s phphotreload server] %s', displayTime(), err);
