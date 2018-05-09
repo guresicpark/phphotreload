@@ -202,7 +202,9 @@ const startServer = function () {
         for (var i = 0; i < files.length; i++) {
             var sFilePathFull = psPath + '/' + files[i];
             if (fs.statSync(sFilePathFull).isFile()) {
-                fs.unlinkSync(sFilePathFull);
+                try {
+                    fs.unlinkSync(sFilePathFull);    
+                } catch (error) { }
             }
         }
         log('[%s phphotreload server] %s', displayTime(), "Local cache files in " + sFilePathFull + " successfully deleted!");
