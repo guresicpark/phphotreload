@@ -21,9 +21,9 @@ But before you start the node js server you have to add a config file under `/no
   debounce: 400 # reaction time of file change debounce timer, 400ms here
   updatealltabs: false # update all tabs related to this local folder
   ignorepaths: 
-    - "C:/your_local_repository/your_php_project/src/generated" # please do not watch this folder for local file changes
-    - "C:/your_local_repository/your_php_project/src/out"
-    - "C:/your_local_repository/your_php_project/src/img"
+    - "generated" # please do not watch this folder for local file changes
+    - "out"
+    - "tmp"
   extensions: # files with this extensions should be watched
     - php
     - js
@@ -32,14 +32,14 @@ But before you start the node js server you have to add a config file under `/no
     - "mypage.com"
     - "mobile.mypage.org"
   ignoreurls: # what urls should be ignored; wildcard patterns are allowed like http://mypage2.com/admin/*/sub
-    - "http://mypage2.com/admin"
-    - "http://mypage2.com/backend"
+    - "admin"
+    - "backend"
   clearpaths: [] # clear files in this folder locally before tab reload begins
   clearurls: # or use a php script to clear your temp files
-    - "http://mypage.com/clearcache.php"
+    - "clearcache.php"
 # next entry here possible...
 ```
-Example config:
+Example config in nodejs_server/config/bla.yml:
 ```yml
 "/home/bla/Workspace/blabla/src/":
   latency: 400
@@ -53,10 +53,10 @@ Example config:
   domains:
     - "blabla.dev.local"
   ignoreurls:
-    - "http://blabla.dev.local/admin"
+    - "admin"
   clearpaths: []
   clearurls:
-    - "http://blabla.dev.local/clrtmp.php"
+    - "clrtmp.php"
 ```
 Don't forget to copy cache delete script provided by phphotreload to your server root.
 

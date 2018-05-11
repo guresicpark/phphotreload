@@ -16,8 +16,7 @@ var fs = require('fs'),
 
 // global vars
 var glaWatcher = [],
-    glaLocalPathsLast = [],
-    glaIgnoredLast = [],
+    glsLocalPathRootLast,
     gliTabIdLast = [],
     gloEventEmitter = void 0,
     gloConfig = {};
@@ -56,27 +55,30 @@ function arraysEqual(paA, paB) {
  * Checks if a string starts with a specific string
  * @return boolean
  */
-if (typeof String.prototype.startsWith != 'function') {
-    String.prototype.startsWith = function (str) {
-        return this.substring(0, str.length) === str;
-    }
-};
+String.prototype.startsWith = function (str) {
+    return this.substring(0, str.length) === str;
+}
 
 /**
  * Checks if a string ends with a specific string
  * @return boolean
  */
-if (typeof String.prototype.endsWith != 'function') {
-    String.prototype.endsWith = function (str) {
-        return this.substring(this.length - str.length, this.length) === str;
-    }
-};
+String.prototype.endsWith = function (str) {
+    return this.substring(this.length - str.length, this.length) === str;
+}
 
 /**
- * Extracts the domain of a url
+ * Extracts the domain of a URL
  */
 String.prototype.getDomain = function () {
     return this.replace(/^https?:\/\//, "").replace(/^www\./, "").split('/')[0];
+};
+
+/**
+ * Extracts host from URL
+ */
+String.prototype.getHost = function () {
+    return this.replace(/^(.*\/\/[^\/?#]*).*$/,"$1");
 };
 
 /**
@@ -84,6 +86,19 @@ String.prototype.getDomain = function () {
  */
 String.prototype.normalizePath = function () {
     return this.split('\\').join('/').replace(/\/(\*+)?\s*$/, '');
+};
+
+/**
+ * Add prefix to the current path
+ * @param psPrefix prefix to add
+ */
+String.prototype.setPathPrefix = function (psPrefix) {
+    if (typeof psPrefix === 'undefined' || !psPrefix) {
+        return this;
+    }
+    psPrefix = psPrefix.toString().trim().replace(/^\/+|\/+$/g, '');
+    sCurrentPath = this.trim().replace(/^\/+|\/+$/g, '');
+    return psPrefix + "/" + sCurrentPath;
 };
 
 /**
@@ -119,8 +134,8 @@ var getConfigurationByLocalFile = function (psLocalFile) {
         return false;
     }
     for (var deltaConfig in gloConfig) {
-        var sPathFromConfig = deltaConfig.normalizePath() + "*";
-        if (wildstring.match(sPathFromConfig, psLocalFile)) {
+        var sPathFromConfig = deltaConfig.normalizePath();
+        if (wildstring.match(sPathFromConfig + "*", psLocalFile)) {
             var oElement = gloConfig[deltaConfig];
             oElement['localpath'] = sPathFromConfig;
             return oElement;
@@ -177,9 +192,9 @@ const startServer = function () {
                 glaWatcher[i].close();
                 glaWatcher[i] = void 0;
             }
-            glaWatcher = [];
         }
 
+        glaWatcher = [];
         for (var i = 0; i < paLocalPaths.length; i++) {
             glaWatcher.push(
                 chokidar.watch(paLocalPaths[i], {
@@ -331,15 +346,13 @@ const startServer = function () {
         
         // is there no routing file exit server
         if (!gloConfig) {
-            log('[%s phphotreload server] configuration file do not exist - please create a server configuration file under ./config/your_config.yml!', displayTime());
+            log('[%s phphotreload server] configuration file do not exist - please create a server configuration file under nodejs_server/config/your_config.yml!', displayTime());
             process.exit();
         }
 
         aConfigFiles = getConfigFiles();
-
         var aLocalPaths = [];
         aLocalPaths = aLocalPaths.concat(aConfigFiles);
-
         var aIgnorePaths = [/[\/\\]\./];
 
         // on connection with client
@@ -372,26 +385,33 @@ const startServer = function () {
                 var sUrl = oData.sUrl.normalizePath();
 
                 // do not reload internal chrome tabs
-                if (sUrl.startsWith("chrome://")) {
+                if (sUrl.startsWith("chrome")) {
+                    return;
+                }
+
+                if (sUrl.startsWith("view-source")) {
                     return;
                 }
 
                 // extract domain
                 var sDomain = sUrl.getDomain();
+                var sHost = sUrl.getHost();
 
                 // can not refresh when there is no config entry for this domain
-                var oConfigEntryByDomain = getConfigurationByDomain(sDomain);
-                if (!oConfigEntryByDomain) {
-                    log('[%s phphotreload server] %s', displayTime(), "No entry found in config.yml for domain " + sDomain + "!");
+                var oConfigEntry = getConfigurationByDomain(sDomain);
+                if (!oConfigEntry) {
+                    log('[%s phphotreload server] %s', displayTime(), "No config entry found for domain " + sDomain + "!");
                     return;
                 }
+                var sLocalPathRoot = oConfigEntry.localpath.normalizePath();
 
                 // do not refresh for a ignored url
-                if (typeof oConfigEntryByDomain.ignoreurls !== 'undefined' && oConfigEntryByDomain.ignoreurls.length) {
-                    for (var i = 0; i < oConfigEntryByDomain.ignoreurls.length; i++) {
-                        var sIgnoreUrl = oConfigEntryByDomain.ignoreurls[i];
+                if (typeof oConfigEntry.ignoreurls !== 'undefined' && oConfigEntry.ignoreurls.length) {
+                    for (var i = 0; i < oConfigEntry.ignoreurls.length; i++) {
+                        var sIgnoreUrl = oConfigEntry.ignoreurls[i];
+                        sIgnoreUrl = sIgnoreUrl.setPathPrefix(sHost);
                         if (wildstring.match(sIgnoreUrl.normalizePath() + "*", sUrl)) {
-                            log('[%s phphotreload server] %s', displayTime(), "Url" + oConfigEntryByDomain.ignoreurls[i] + " is ignored!");
+                            log('[%s phphotreload server] %s', displayTime(), "Url " + oConfigEntry.ignoreurls[i] + " is ignored!");
                             return;
                         }
                     }
@@ -403,161 +423,163 @@ const startServer = function () {
                     return;
                 }
 
-                if (typeof oConfigEntryByDomain.extensions === 'undefined' || !oConfigEntryByDomain.extensions.length) {
-                    log('[%s phphotreload server] %s', displayTime(), "No extensions defined in config.yml for this domain!");
+                if (typeof oConfigEntry.extensions === 'undefined' || !oConfigEntry.extensions.length) {
+                    log('[%s phphotreload server] %s', displayTime(), "No config entry defined for this domain!");
                     return;
                 }
 
                 gliTabIdLast = oData.iTabId;
 
                 // latency time in ms, if not defined in config set to default of 100 ms
-                var iLatency = typeof oConfigEntryByDomain.latency !== 'undefined' && oConfigEntryByDomain.latency ? oConfigEntryByDomain.latency : 100;
+                var iLatency = typeof oConfigEntry.latency !== 'undefined' && oConfigEntry.latency ? oConfigEntry.latency : 100;
 
                 // debounce time in ms, if not defined in config set to default of 200 ms
-                var iDebounce = typeof oConfigEntryByDomain.debounce !== 'undefined' && oConfigEntryByDomain.debounce ? oConfigEntryByDomain.debounce : 200;
+                var iDebounce = typeof oConfigEntry.debounce !== 'undefined' && oConfigEntry.debounce ? oConfigEntry.debounce : 200;
 
                 log('[%s phphotreload server] %s', displayTime(), "Message from chrome: " + sDomain + ' ' + oData.sMessage);
 
-                for (var i = 0; i < oConfigEntryByDomain.extensions.length; i++) {
-                    var sNewLocalPath = oConfigEntryByDomain.localpath.normalizePath() + '/**/*.' + oConfigEntryByDomain.extensions[i];
-                    if (!includes(aLocalPaths, sNewLocalPath)) {
-                        aLocalPaths.push(sNewLocalPath);
+                aLocalPaths = [];
+                for (var i = 0; i < oConfigEntry.extensions.length; i++) {
+                    var sLocalPathExtension = oConfigEntry.localpath.normalizePath() + '/**/*.' + oConfigEntry.extensions[i];
+                    if (!includes(aLocalPaths, sLocalPathExtension)) {
+                        aLocalPaths.push(sLocalPathExtension);
                     }
                 }
 
-                if (typeof oConfigEntryByDomain.ignorepaths !== 'undefined' && oConfigEntryByDomain.ignorepaths.length) {
-                    for (var i = 0; i < oConfigEntryByDomain.ignorepaths.length; i++) {
-                        aIgnorePaths.push(oConfigEntryByDomain.ignorepaths[i]);
+                sIgnorepath = [];
+                if (typeof oConfigEntry.ignorepaths !== 'undefined' && oConfigEntry.ignorepaths.length) {
+                    for (var i = 0; i < oConfigEntry.ignorepaths.length; i++) {
+                        var sIgnorepath = oConfigEntry.ignorepaths[i];
+                        sIgnorepath = sIgnorepath.setPathPrefix(sLocalPathRoot);
+                        aIgnorePaths.push(sIgnorepath);
                     }
                 }
 
-                if (aLocalPaths && arraysEqual(aLocalPaths, glaLocalPathsLast)) {
-                    if (typeof oConfigEntryByDomain.ignorepaths !== 'undefined' && oConfigEntryByDomain.ignorepaths.length
-                        && arraysEqual(oConfigEntryByDomain.ignorepaths, glaIgnoredLast)) {
-                        // don't init new filewatcher if there is no entry in config
+                if (sLocalPathRoot == glsLocalPathRootLast) {
+                    // don't re-init new filewatcher of wathced local files haven't changed
+                    return;
+                }
+
+                // re-init
+                glsLocalPathRootLast = sLocalPathRoot;
+
+                log('[%s phphotreload server] %s', displayTime(), "Latency time set to " + iLatency + "ms!");
+
+                log('[%s phphotreload server] %s', displayTime(), "Debounce time set to " + iDebounce + "ms!");
+
+                log('[%s phphotreload server] %s', displayTime(), "Starting initialization of all file watchers...");
+
+                initWatcher(aLocalPaths, aIgnorePaths);
+
+                // dispatch filewatcher events
+                var iCounterWatcherInit = 0;
+                for (var i = 0; i < glaWatcher.length; i++) {
+                    glaWatcher[i].on('ready', function () {
+                        iCounterWatcherInit++;
+                        var sWatcherInitPath = aLocalPaths[iCounterWatcherInit - 1];
+                        aWatcherInitPath = sWatcherInitPath.split("**/");
+                        sWatcherInitPath = typeof aWatcherInitPath[1] !== 'undefined' && aWatcherInitPath[1] ? aWatcherInitPath[1] : sWatcherInitPath;
+                        if (!inArray(aConfigFiles, sWatcherInitPath) ) {
+                            log('[%s phphotreload server] %s', displayTime(), "File watcher " + sWatcherInitPath + " initialized!");
+                        }
+                        if (iCounterWatcherInit >= glaWatcher.length) {
+                            iCounterWatcherInit = 0;
+                            log('[%s phphotreload server] %s', displayTime(), "Initialization of file watchers finished!");
+                        }
+                    }).on('change', function (psChangedLocalFile, poStats) {
+                        var sChangedLocalFile = psChangedLocalFile.normalizePath();
+                        gloEventEmitter.emit('changed', sChangedLocalFile);
+                    });
+                }
+                if (typeof gloEventEmitter !== 'undefined') {
+                    gloEventEmitter.removeAllListeners();
+                    gloEventEmitter = void 0;
+                }
+                
+                gloEventEmitter = new events.EventEmitter();
+                gloEventEmitter.on('changed', debounce(iDebounce, function (psChangedLocalFile) {
+                    if (inArray(aConfigFiles, psChangedLocalFile)) {
+                        log('[%s phphotreload server] %s', displayTime(), "Configuration file was updated!");
+                        log('[%s phphotreload server] %s', displayTime(), "Server restarted!");
+                        startServer();
                         return;
                     }
-                } else {
 
-                    glaLocalPathsLast = aLocalPaths;
-                    glaIgnoredLast = aIgnorePaths;
+                    log('[%s phphotreload server] %s', displayTime(), "Local file " + psChangedLocalFile + " changed!");
 
-                    log('[%s phphotreload server] %s', displayTime(), "Latency time set to " + iLatency + "ms!");
-
-                    log('[%s phphotreload server] %s', displayTime(), "Debounce time set to " + iDebounce + "ms!");
-
-                    log('[%s phphotreload server] %s', displayTime(), "Starting initialization of all file watchers...");
-
-                    initWatcher(aLocalPaths, aIgnorePaths);
-
-                    // dispatch filewatcher events
-                    var iCounterWatcherInit = 0;
-                    for (var i = 0; i < glaWatcher.length; i++) {
-                        glaWatcher[i].on('ready', function () {
-                            iCounterWatcherInit++;
-                            var sWatcherInitPath = aLocalPaths[iCounterWatcherInit - 1];
-                            aWatcherInitPath = sWatcherInitPath.split("**/");
-                            sWatcherInitPath = typeof aWatcherInitPath[1] !== 'undefined' && aWatcherInitPath[1] ? aWatcherInitPath[1] : sWatcherInitPath;
-                            if (!inArray(aConfigFiles, sWatcherInitPath) ) {
-                                log('[%s phphotreload server] %s', displayTime(), "File watcher " + sWatcherInitPath + " initialized!");
-                            }
-                            if (iCounterWatcherInit >= glaWatcher.length) {
-                                iCounterWatcherInit = 0;
-                                log('[%s phphotreload server] %s', displayTime(), "Initialization of file watchers finished!");
-                            }
-                        }).on('change', function (psChangedLocalFile, poStats) {
-                            var sChangedLocalFile = psChangedLocalFile.normalizePath();
-                            gloEventEmitter.emit('changed', sChangedLocalFile);
-                        });
+                    var oConfigEntry = getConfigurationByLocalFile(psChangedLocalFile);
+                    if (!oConfigEntry) {
+                        log('[%s phphotreload server] %s', displayTime(), "No config entry found for changed local file " + psChangedLocalFile + "!");
+                        return;
                     }
-                    if (typeof gloEventEmitter !== 'undefined') {
-                        gloEventEmitter.removeAllListeners();
-                        gloEventEmitter = void 0;
+                    var sLocalPathRoot = oConfigEntry.localpath.normalizePath();
+
+                    // clear temporary files by deleting local tmp files
+                    if (typeof oConfigEntry.clearpaths !== 'undefined' && oConfigEntry.clearpaths.length) {
+                        for (var i = 0; i < oConfigEntry.clearpaths.length; i++) {
+                            var sClearpaths = oConfigEntry.clearpaths[i];
+                            sClearpaths = sClearpaths.setPathPrefix(sLocalPathRoot)
+                            clearTemp(sClearpaths);
+                        }
                     }
-                    gloEventEmitter = new events.EventEmitter();
 
-                    gloEventEmitter.on('changed', debounce(iDebounce, function (psChangedLocalFile) {
-                        if (inArray(aConfigFiles, psChangedLocalFile)) {
-                            log('[%s phphotreload server] %s', displayTime(), "Configuration file was updated!");
-                            log('[%s phphotreload server] %s', displayTime(), "Server restarted!");
-                            glaLocalPathsLast = [];
-                            glaIgnoredLast = [];
-                            startServer();
-                            return;
+                    // clear temporary files by URL asynchronously
+                    if (typeof oConfigEntry.clearurls === 'undefined' || !oConfigEntry.clearurls) {
+                        reloadTab(oSocket, gliTabIdLast, iLatency);
+                        return;
+                    }
+
+                    var aClearUrlsDomain = [];
+                    for (var i = 0; i < oConfigEntry.clearurls.length; i++) {
+                        var sClearUrl = oConfigEntry.clearurls[i];
+                        sClearUrl = sClearUrl.setPathPrefix(sHost);
+                        if (sDomain == sClearUrl.getDomain()) {
+                            aClearUrlsDomain.push(sClearUrl);
                         }
+                    }
 
-                        log('[%s phphotreload server] %s', displayTime(), "Local file " + psChangedLocalFile + " changed!");
+                    if (!aClearUrlsDomain.length) {
+                        reloadTab(oSocket, gliTabIdLast, iLatency);
+                        return;
+                    }
 
-                        var oConfigEntryByLocalFile = getConfigurationByLocalFile(psChangedLocalFile);
-                        if (!oConfigEntryByLocalFile) {
-                            log('[%s phphotreload server] %s', displayTime(), "No entry found in config.yml for changed local file " + psChangedLocalFile + "!");
-                            return;
-                        }
+                    var iUrlRequestsProcessed = 0;
+                    for (var i = 0; i < aClearUrlsDomain.length; i++) {
+                        var sClearUrlDomain = aClearUrlsDomain[i];
+                        // request options
+                        var options = {
+                            url: sClearUrlDomain,
+                            headers: {
+                                'User-Agent': 'request'
+                            },
+                            method: 'GET',
+                            json: true
+                        };
 
-                        // clear temporary files by deleting local tmp files
-                        if (typeof oConfigEntryByLocalFile.clearpaths !== 'undefined' && oConfigEntryByLocalFile.clearpaths.length) {
-                            for (var i = 0; i < oConfigEntryByLocalFile.clearpaths.length; i++) {
-                                clearTemp(oConfigEntryByLocalFile.clearpaths[i]);
+                        function handleResponse(error, response, body) {
+
+                            iUrlRequestsProcessed++;
+
+                            if (error || typeof body === 'undefined' || !body) {
+                                log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
+                            }
+                            else if (typeof body.message !== 'undefined' && body.message) {
+                                log('[%s phphotreload server] %s', displayTime(), "Cache clearing php script success result: " + body.message);
+                            } else {
+                                log('[%s phphotreload server] %s', displayTime(), "Fail: cache clearing php script not found!");
+                            }
+
+                            if (iUrlRequestsProcessed >= aClearUrlsDomain.length) {
+                                iUrlRequestsProcessed = 0;
+                                // trigger reload
+                                reloadTab(oSocket, gliTabIdLast, iLatency);
                             }
                         }
-
-                        // clear temporary files by URL asynchronously
-                        if (typeof oConfigEntryByLocalFile.clearurls === 'undefined' || !oConfigEntryByLocalFile.clearurls) {
-                            reloadTab(oSocket, gliTabIdLast, iLatency);
-                            return;
-                        }
-
-                        var aClearUrlsDomain = [];
-                        for (var i = 0; i < oConfigEntryByLocalFile.clearurls.length; i++) {
-                            var sClearUrl = oConfigEntryByLocalFile.clearurls[i];
-                            if (sDomain == sClearUrl.getDomain()) {
-                                aClearUrlsDomain.push(sClearUrl);
-                            }
-                        }
-
-                        if (!aClearUrlsDomain.length) {
-                            reloadTab(oSocket, gliTabIdLast, iLatency);
-                            return;
-                        }
-
-                        var iUrlRequestsProcessed = 0;
-                        for (var i = 0; i < aClearUrlsDomain.length; i++) {
-                            var sClearUrlDomain = aClearUrlsDomain[i];
-                            // request options
-                            var options = {
-                                url: sClearUrlDomain,
-                                headers: {
-                                    'User-Agent': 'request'
-                                },
-                                method: 'GET',
-                                json: true
-                            };
-
-                            function handleResponse(error, response, body) {
-
-                                iUrlRequestsProcessed++;
-
-                                if (error || typeof body === 'undefined' || !body) {
-                                    log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
-                                }
-                                else if (typeof body.message !== 'undefined' && body.message) {
-                                    log('[%s phphotreload server] %s', displayTime(), "Cache clearing php script success result: " + body.message);
-                                } else {
-                                    log('[%s phphotreload server] %s', displayTime(), "Fail: cache clearing php script not found!");
-                                }
-
-                                if (iUrlRequestsProcessed >= aClearUrlsDomain.length) {
-                                    iUrlRequestsProcessed = 0;
-                                    // trigger reload
-                                    reloadTab(oSocket, gliTabIdLast, iLatency);
-                                }
-                            }
-                            // init request
-                            log('[%s phphotreload server] %s', displayTime(), "Cache task request " + sClearUrlDomain + " started!");
-                            request(options, handleResponse);
-                        }
-                    }));
-                }
+                        // init request
+                        log('[%s phphotreload server] %s', displayTime(), "Cache task request " + sClearUrlDomain + " started!");
+                        request(options, handleResponse);
+                    }
+                }));
 
             }));
 
