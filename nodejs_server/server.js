@@ -78,7 +78,7 @@ String.prototype.getDomain = function () {
  * Extracts host from URL
  */
 String.prototype.getHost = function () {
-    return this.replace(/^(.*\/\/[^\/?#]*).*$/,"$1");
+    return this.replace(/^(.*\/\/[^\/?#]*).*$/, "$1");
 };
 
 /**
@@ -229,7 +229,7 @@ const startServer = function () {
             var sFilePathFull = psPath + '/' + files[i];
             if (fs.statSync(sFilePathFull).isFile()) {
                 try {
-                    fs.unlinkSync(sFilePathFull);    
+                    fs.unlinkSync(sFilePathFull);
                 } catch (error) {
                     return false;
                 }
@@ -325,8 +325,8 @@ const startServer = function () {
      * @param piTabIdLast tab id
      * @param piLatency latency in ms
      */
-    const reloadTab = function (posocket, piTabIdLast, piLatency) {
-        if (typeof posocket === 'undefined' || !posocket) {
+    const reloadTab = function (poSocket, piTabIdLast, piLatency) {
+        if (typeof poSocket === 'undefined') {
             return;
         }
         if (typeof piTabIdLast === 'undefined' || !piTabIdLast) {
@@ -335,7 +335,7 @@ const startServer = function () {
         piLatency = typeof piLatency !== 'undefined' && piLatency ? piLatency : 0;
         setTimeout(function () {
             log('[%s phphotreload server] %s', displayTime(), "Reload request for TabId " + gliTabIdLast + " sent to Chrome!");
-            posocket.send(JSON.stringify({ iTabId: gliTabIdLast }));
+            poSocket.send(JSON.stringify({ iTabId: gliTabIdLast }));
         }, piLatency);
     }
 
@@ -343,7 +343,7 @@ const startServer = function () {
     try {
         // try to load some config files
         gloConfig = loadConfig();
-        
+
         // is there no routing file exit server
         if (!gloConfig) {
             log('[%s phphotreload server] configuration file do not exist - please create a server configuration file under nodejs_server/config/your_config.yml!', displayTime());
@@ -361,10 +361,14 @@ const startServer = function () {
         }
 
         if (typeof gloEventEmitter === 'undefined') {
-			gloEventEmitter = new events.EventEmitter();
-		}
+            gloEventEmitter = new events.EventEmitter();
+        }
 
-        io.on('connection', function (oSocket) {
+        io.on('connection', function (poSocket) {
+
+            if (typeof poSocket === 'undefined') {
+                return;
+            }
 
             // on connection
             initWatcher(aLocalPaths);
@@ -379,9 +383,13 @@ const startServer = function () {
 
             log('[%s phphotreload server] %s', displayTime(), "Client is connected!");
 
-            oSocket.on('message', debounce(300, function (jsonData) {
+            poSocket.on('message', debounce(300, function (pjsonData) {
 
-                var oData = JSON.parse(jsonData);
+                if (typeof pjsonData === 'undefined') {
+                    return;
+                }
+
+                var oData = JSON.parse(pjsonData);
                 var sUrl = oData.sUrl.normalizePath();
 
                 // do not reload internal chrome tabs
@@ -479,7 +487,7 @@ const startServer = function () {
                         var sWatcherInitPath = aLocalPaths[iCounterWatcherInit - 1];
                         aWatcherInitPath = sWatcherInitPath.split("**/");
                         sWatcherInitPath = typeof aWatcherInitPath[1] !== 'undefined' && aWatcherInitPath[1] ? aWatcherInitPath[1] : sWatcherInitPath;
-                        if (!inArray(aConfigFiles, sWatcherInitPath) ) {
+                        if (!inArray(aConfigFiles, sWatcherInitPath)) {
                             log('[%s phphotreload server] %s', displayTime(), "File watcher " + sWatcherInitPath + " initialized!");
                         }
                         if (iCounterWatcherInit >= glaWatcher.length) {
@@ -495,7 +503,7 @@ const startServer = function () {
                     gloEventEmitter.removeAllListeners();
                     gloEventEmitter = void 0;
                 }
-                
+
                 gloEventEmitter = new events.EventEmitter();
                 gloEventEmitter.on('changed', debounce(iDebounce, function (psChangedLocalFile) {
                     if (inArray(aConfigFiles, psChangedLocalFile)) {
@@ -525,7 +533,7 @@ const startServer = function () {
 
                     // clear temporary files by URL asynchronously
                     if (typeof oConfigEntry.clearurls === 'undefined' || !oConfigEntry.clearurls) {
-                        reloadTab(oSocket, gliTabIdLast, iLatency);
+                        reloadTab(poSocket, gliTabIdLast, iLatency);
                         return;
                     }
 
@@ -539,7 +547,7 @@ const startServer = function () {
                     }
 
                     if (!aClearUrlsDomain.length) {
-                        reloadTab(oSocket, gliTabIdLast, iLatency);
+                        reloadTab(poSocket, gliTabIdLast, iLatency);
                         return;
                     }
 
@@ -556,15 +564,15 @@ const startServer = function () {
                             json: true
                         };
 
-                        function handleResponse(error, response, body) {
+                        function handleResponse(poError, poResponse, poBody) {
 
                             iUrlRequestsProcessed++;
 
-                            if (error || typeof body === 'undefined' || !body) {
-                                log('[%s phphotreload server] Cache task fail result: %s', displayTime(), error);
+                            if (poError || typeof poBody === 'undefined' || !poBody) {
+                                log('[%s phphotreload server] Cache task fail result: %s', displayTime(), poError);
                             }
-                            else if (typeof body.message !== 'undefined' && body.message) {
-                                log('[%s phphotreload server] %s', displayTime(), "Cache clearing php script success result: " + body.message);
+                            else if (typeof poBody.message !== 'undefined' && poBody.message) {
+                                log('[%s phphotreload server] %s', displayTime(), "Cache clearing php script success result: " + poBody.message);
                             } else {
                                 log('[%s phphotreload server] %s', displayTime(), "Fail: cache clearing php script not found!");
                             }
@@ -572,7 +580,7 @@ const startServer = function () {
                             if (iUrlRequestsProcessed >= aClearUrlsDomain.length) {
                                 iUrlRequestsProcessed = 0;
                                 // trigger reload
-                                reloadTab(oSocket, gliTabIdLast, iLatency);
+                                reloadTab(poSocket, gliTabIdLast, iLatency);
                             }
                         }
                         // init request
@@ -583,7 +591,7 @@ const startServer = function () {
 
             }));
 
-            oSocket.on('disconnect', function () {
+            poSocket.on('disconnect', function () {
                 log('[%s phphotreload server] %s', displayTime(), "Disconnected!");
             });
 
