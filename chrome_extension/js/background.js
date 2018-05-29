@@ -2,7 +2,15 @@
 
 // Global variables
 var log = console.log.bind(console),
-    gloSocket = io.connect('http://localhost:1337'),
+    gloSocket = io('http://localhost:1337', {
+        reconnectionDelay: 1000,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        transports: ['websocket'],
+        agent: false,
+        upgrade: false,
+        rejectUnauthorized: false
+    }),
     glblServerConnection = false,
     gliTabReloadedBefore = false,
     glblTabWasReloaded = false;
